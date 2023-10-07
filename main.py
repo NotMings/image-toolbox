@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
 )
+from PySide6.QtGui import QIcon
 
 from ui.compiled.main_window import Ui_toolBoxMainWindow
 from app.modules.select_folder import select_folder
@@ -29,6 +30,8 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
         super().__init__()
         self.setupUi(self)
         self.show()
+
+        self.setWindowIcon(QIcon('assets/icon.png'))
 
         # 输入输出文件夹
         self.inputFolderPushButton.clicked.connect(self.input_button_clicked)
