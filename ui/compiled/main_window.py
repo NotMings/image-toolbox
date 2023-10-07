@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'main_window.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.5.2
+## Created by: Qt User Interface Compiler version 6.5.3
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -29,12 +29,6 @@ class Ui_toolBoxMainWindow(object):
         toolBoxMainWindow.resize(742, 226)
         self.actionAbout = QAction(toolBoxMainWindow)
         self.actionAbout.setObjectName(u"actionAbout")
-        self.action1 = QAction(toolBoxMainWindow)
-        self.action1.setObjectName(u"action1")
-        self.action12 = QAction(toolBoxMainWindow)
-        self.action12.setObjectName(u"action12")
-        self.action123 = QAction(toolBoxMainWindow)
-        self.action123.setObjectName(u"action123")
         self.centralwidget = QWidget(toolBoxMainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
         self.gridLayout = QGridLayout(self.centralwidget)
@@ -174,9 +168,6 @@ class Ui_toolBoxMainWindow(object):
     def retranslateUi(self, toolBoxMainWindow):
         toolBoxMainWindow.setWindowTitle(QCoreApplication.translate("toolBoxMainWindow", u"\u56fe\u7247\u5de5\u5177\u7bb1", None))
         self.actionAbout.setText(QCoreApplication.translate("toolBoxMainWindow", u"\u5173\u4e8e", None))
-        self.action1.setText(QCoreApplication.translate("toolBoxMainWindow", u"1", None))
-        self.action12.setText(QCoreApplication.translate("toolBoxMainWindow", u"12", None))
-        self.action123.setText(QCoreApplication.translate("toolBoxMainWindow", u"123", None))
         self.inputFolderlabel.setText(QCoreApplication.translate("toolBoxMainWindow", u"\u8f93\u5165\u6587\u4ef6\u5939", None))
         self.inputFolderPushButton.setText(QCoreApplication.translate("toolBoxMainWindow", u"\u9009\u62e9\u6587\u4ef6\u5939", None))
         self.recursiveloadingCheckBox.setText(QCoreApplication.translate("toolBoxMainWindow", u"\u9012\u5f52\u8f7d\u5165", None))
