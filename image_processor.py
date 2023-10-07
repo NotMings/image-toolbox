@@ -37,6 +37,11 @@ class ImageProcessor(QObject):
 
         self.image_path = load_image_path_from_folder(self.input_folder, self.kwargs.get('recursive_load', False))
 
+        if not self.image_path:
+            if console_callback is not None:
+                console_callback('没有找到图片')
+            return
+
         i = 0
 
         total_count = len(self.image_path)
