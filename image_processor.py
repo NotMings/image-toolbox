@@ -33,7 +33,7 @@ class ImageProcessor(QObject):
             console_callback=None
     ):
         if console_callback is not None:
-            console_callback('Loading images, please wait...')
+            console_callback('正在载入图片...')
 
         self.image_path = load_image_path_from_folder(self.input_folder, self.kwargs.get('recursive_load', False))
 
