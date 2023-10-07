@@ -1,16 +1,18 @@
+import os
 import sys
 import tempfile
+
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
     QMessageBox,
 )
-from PySide6.QtGui import QIcon
 
-from ui.compiled.main_window import Ui_toolBoxMainWindow
+from app.modules.pocessing_thread import ProcessingThread
 from app.modules.select_folder import select_folder
 from image_processor import ImageProcessor
-from app.modules.pocessing_thread import ProcessingThread
+from ui.compiled.main_window import Ui_toolBoxMainWindow
 
 
 class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
@@ -31,7 +33,8 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
         self.setupUi(self)
         self.show()
 
-        self.setWindowIcon(QIcon('assets/icon.png'))
+        icon_path = os.path.join(sys._MEIPASS, 'assets/icon.png') if getattr(sys, 'frozen', False) else 'assets/icon.png'
+        self.setWindowIcon(QIcon(icon_path))
 
         # 输入输出文件夹
         self.inputFolderPushButton.clicked.connect(self.input_button_clicked)

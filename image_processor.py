@@ -1,9 +1,11 @@
-from PySide6.QtCore import QObject
-from app.modules.load_image_path_from_folder import load_image_path_from_folder
-from PIL import Image, ImageOps
-import os
-from app.enums.image_format import ImageFormat
 import io
+import os
+
+from PIL import Image, ImageOps
+from PySide6.QtCore import QObject
+
+from app.enums.image_format import ImageFormat
+from app.modules.load_image_path_from_folder import load_image_path_from_folder
 
 
 def find_field_by_value(enum, value):
