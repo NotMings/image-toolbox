@@ -145,7 +145,7 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
             'About',
             '<div>'
             '<h1>IMAGE TOOlBOX</h1>'
-            '<p>Version: 1.0.0</p>'
+            '<p>Version: 1.0.1</p>'
             '<p>Author: 不明</p>'
             '<p>GitHub Link: '
             '<a href="https://github.com/notmings/image-toolbox">https://github.com/notmings/image-toolbox</a>'
