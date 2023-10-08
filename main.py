@@ -26,6 +26,9 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
     is_selected_compress_image = False
     image_target_size = None
 
+    is_selected_rename_image = False
+    rename_image_method = None
+
     main_processing_thread = None
 
     def __init__(self):
@@ -38,7 +41,9 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
 
         # 输入输出文件夹
         self.inputFolderPushButton.clicked.connect(self.input_button_clicked)
+        self.inputFolderlineEdit.textChanged.connect(self.input_folder_line_edit_changed)
         self.outputFolderPushButton.clicked.connect(self.output_button_clicked)
+        self.outputFolderlineEdit.textChanged.connect(self.output_folder_line_edit_changed)
 
         # 图片格式化
         self.convertImageFormatCheckBox.clicked.connect(self.convert_image_format_check_box_clicked)
@@ -49,6 +54,11 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
         self.compressImageCheckBox.clicked.connect(self.compress_image_check_box_clicked)
         self.compressImageDoubleSpinBox.setEnabled(False)
         self.compressImageDoubleSpinBox.valueChanged.connect(self.compress_image_double_spin_box_changed)
+
+        # 重命名
+        self.renameImageCheckBox.clicked.connect(self.rename_image_check_box_clicked)
+        self.renameImageComboBox.setEnabled(False)
+        self.renameImageComboBox.currentIndexChanged.connect(self.rename_image_combo_box_changed)
 
         # 开始按钮
         self.startProcessingPushButton.clicked.connect(self.start_processing)
@@ -61,10 +71,16 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
         if self.input_folder is not None:
             self.inputFolderlineEdit.setText(self.input_folder)
 
+    def input_folder_line_edit_changed(self):
+        self.input_folder = self.inputFolderlineEdit.text()
+
     def output_button_clicked(self):
         self.output_folder = select_folder(self)
         if self.output_folder is not None:
             self.outputFolderlineEdit.setText(self.output_folder)
+
+    def output_folder_line_edit_changed(self):
+        self.output_folder = self.outputFolderlineEdit.text()
 
     def convert_image_format_check_box_clicked(self):
         if self.convertImageFormatCheckBox.isChecked() is True:
@@ -93,6 +109,22 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
     def compress_image_double_spin_box_changed(self):
         self.image_target_size = self.compressImageDoubleSpinBox.value()
 
+    def rename_image_check_box_clicked(self):
+        if self.renameImageCheckBox.isChecked() is True:
+            self.renameImageComboBox.setEnabled(True)
+
+            default_index = 0
+            self.renameImageComboBox.setCurrentIndex(default_index)
+            self.rename_image_method = default_index
+            self.is_selected_rename_image = True
+        else:
+            self.renameImageComboBox.setEnabled(False)
+            self.rename_image_method = None
+            self.is_selected_rename_image = False
+
+    def rename_image_combo_box_changed(self):
+        self.rename_image_method = self.renameImageComboBox.currentIndex()
+
     def start_processing(self):
         if self.input_folder is None:
             QMessageBox.warning(self, 'Warning', '请选择输入文件夹')
@@ -102,7 +134,7 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
             QMessageBox.warning(self, 'Warning', '请选择输出文件夹')
             return
 
-        if self.image_format is None and self.image_target_size is None:
+        if self.image_format is None and self.image_target_size is None and self.rename_image_method is None:
             QMessageBox.warning(self, 'Warning', '至少选择一个处理方式')
             return
 
@@ -125,6 +157,8 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
             image_format=self.image_format,
             is_selected_compress_image=self.is_selected_compress_image,
             image_target_size=self.image_target_size,
+            is_selected_rename_image=self.is_selected_rename_image,
+            rename_image_method=self.rename_image_method,
         )
 
         self.main_processing_thread = ProcessingThread(image_processor.run)
@@ -145,7 +179,7 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
             'About',
             '<div>'
             '<h1>IMAGE TOOlBOX</h1>'
-            '<p>Version: 1.0.1</p>'
+            '<p>Version: 1.1.0</p>'
             '<p>Author: 不明</p>'
             '<p>GitHub Link: '
             '<a href="https://github.com/notmings/image-toolbox">https://github.com/notmings/image-toolbox</a>'

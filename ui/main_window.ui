@@ -7,14 +7,14 @@
     <x>0</x>
     <y>0</y>
     <width>742</width>
-    <height>226</height>
+    <height>236</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>图片工具箱</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <layout class="QGridLayout" name="gridLayout">
+   <layout class="QFormLayout" name="formLayout">
     <item row="0" column="0" colspan="2">
      <layout class="QHBoxLayout" name="inputFolderHorizontalLayout">
       <item>
@@ -78,88 +78,126 @@
       </item>
      </layout>
     </item>
-    <item row="2" column="1" rowspan="2">
-     <widget class="QTextEdit" name="consoleTextEdit"/>
-    </item>
-    <item row="4" column="1">
-     <layout class="QHBoxLayout" name="totalProgressHorizontalLayout">
-      <item>
-       <widget class="QLabel" name="totalProgresslabel">
-        <property name="text">
-         <string>总进度</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QProgressBar" name="totalProgressBar">
-        <property name="value">
-         <number>0</number>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </item>
     <item row="2" column="0">
-     <layout class="QHBoxLayout" name="convertImageFormatHorizontalLayout">
+     <layout class="QVBoxLayout" name="optionVerticalLayout">
       <item>
-       <widget class="QCheckBox" name="convertImageFormatCheckBox">
-        <property name="text">
-         <string>转化图片格式</string>
-        </property>
-       </widget>
+       <layout class="QHBoxLayout" name="convertImageFormatHorizontalLayout">
+        <item>
+         <widget class="QCheckBox" name="convertImageFormatCheckBox">
+          <property name="text">
+           <string>转化图片格式</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="convertImageFormatComboBox">
+          <item>
+           <property name="text">
+            <string>jpeg</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>png</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>webp</string>
+           </property>
+          </item>
+         </widget>
+        </item>
+       </layout>
       </item>
       <item>
-       <widget class="QComboBox" name="convertImageFormatComboBox">
+       <layout class="QHBoxLayout" name="compressImageHorizontalLayout">
         <item>
-         <property name="text">
-          <string>jpeg</string>
-         </property>
+         <widget class="QCheckBox" name="compressImageCheckBox">
+          <property name="text">
+           <string>压缩图片</string>
+          </property>
+         </widget>
         </item>
         <item>
-         <property name="text">
-          <string>png</string>
-         </property>
+         <widget class="QDoubleSpinBox" name="compressImageDoubleSpinBox">
+          <property name="maximum">
+           <double>999999.989999999990687</double>
+          </property>
+         </widget>
         </item>
         <item>
-         <property name="text">
-          <string>webp</string>
-         </property>
+         <widget class="QLabel" name="compressImageLabel">
+          <property name="text">
+           <string>KB</string>
+          </property>
+         </widget>
         </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="renameImageHorizontalLayout">
+        <item>
+         <widget class="QCheckBox" name="renameImageCheckBox">
+          <property name="text">
+           <string>重命名图片</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="renameImageComboBox">
+          <item>
+           <property name="text">
+            <string>uuid</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>md5</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>auto-increment number</string>
+           </property>
+          </item>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QPushButton" name="startProcessingPushButton">
+        <property name="text">
+         <string>开始</string>
+        </property>
        </widget>
       </item>
      </layout>
     </item>
-    <item row="3" column="0">
-     <layout class="QHBoxLayout" name="compressImageHorizontalLayout">
+    <item row="2" column="1">
+     <layout class="QVBoxLayout" name="outputInfoVerticalLayout">
       <item>
-       <widget class="QCheckBox" name="compressImageCheckBox">
-        <property name="text">
-         <string>压缩图片</string>
-        </property>
-       </widget>
+       <widget class="QTextEdit" name="consoleTextEdit"/>
       </item>
       <item>
-       <widget class="QDoubleSpinBox" name="compressImageDoubleSpinBox">
-        <property name="maximum">
-         <double>999999.989999999990687</double>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QLabel" name="compressImageLabel">
-        <property name="text">
-         <string>KB</string>
-        </property>
-       </widget>
+       <layout class="QHBoxLayout" name="totalProgressHorizontalLayout">
+        <item>
+         <widget class="QLabel" name="totalProgresslabel">
+          <property name="text">
+           <string>总进度</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QProgressBar" name="totalProgressBar">
+          <property name="value">
+           <number>0</number>
+          </property>
+         </widget>
+        </item>
+       </layout>
       </item>
      </layout>
-    </item>
-    <item row="4" column="0">
-     <widget class="QPushButton" name="startProcessingPushButton">
-      <property name="text">
-       <string>开始</string>
-      </property>
-     </widget>
     </item>
    </layout>
   </widget>

@@ -1,11 +1,17 @@
 import io
 import os
+import uuid
+import time
+import hashlib
+import random
+import string
 
 from PIL import Image, ImageOps
 from PySide6.QtCore import QObject
 
 from app.enums.image_format import ImageFormat
 from app.modules.load_image_path_from_folder import load_image_path_from_folder
+from app.enums.rename_image_method import RenameImageMethod
 
 
 def find_field_by_value(enum, value):
@@ -100,7 +106,29 @@ class ImageProcessor(QObject):
                         image.save(buffer, format=original_image_format.upper(), quality=quality)
                         o_size = len(buffer.getvalue()) / 1024
 
-                    # image = Image.open(buf)
+                    image = Image.open(buffer)
+
+            if self.kwargs.get('is_selected_rename_image', False) is True:
+                if console_callback is not None:
+                    console_callback('正在重命名图片: ' + original_image_name)
+
+                rename_image_method = self.kwargs.get('rename_image_method', RenameImageMethod.UUID.value)
+
+                if rename_image_method == RenameImageMethod.UUID.value:
+                    original_image_name = str(uuid.uuid4()) + '.' + original_image_format.lower()
+                elif rename_image_method == RenameImageMethod.MD5.value:
+                    length = 128
+                    random_string = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(length))
+                    md5_hash = hashlib.md5()
+                    md5_hash.update((str(time.perf_counter_ns()) + random_string).encode('utf-8'))
+                    original_image_name = md5_hash.hexdigest() + '.' + original_image_format.lower()
+                elif rename_image_method == RenameImageMethod.AUTO_INCREMENT_NUMBER.value:
+                    original_image_name = str(i) + '.' + original_image_format.lower()
+
+                if buffer is None:
+                    buffer = io.BytesIO()
+                    image.save(buffer, format=original_image_format.upper())
+                    image = Image.open(buffer)
 
             new_name = os.path.splitext(original_image_name)[0] + '.' + original_image_format.lower()
             new_path = os.path.join(output_folder, new_name)
