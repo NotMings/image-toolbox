@@ -26,7 +26,7 @@ class Ui_toolBoxMainWindow(object):
     def setupUi(self, toolBoxMainWindow):
         if not toolBoxMainWindow.objectName():
             toolBoxMainWindow.setObjectName(u"toolBoxMainWindow")
-        toolBoxMainWindow.resize(742, 236)
+        toolBoxMainWindow.resize(825, 236)
         self.actionAbout = QAction(toolBoxMainWindow)
         self.actionAbout.setObjectName(u"actionAbout")
         self.centralwidget = QWidget(toolBoxMainWindow)
@@ -76,6 +76,11 @@ class Ui_toolBoxMainWindow(object):
         self.outputFolderPushButton.setObjectName(u"outputFolderPushButton")
 
         self.outputFolderHorizontalLayout.addWidget(self.outputFolderPushButton)
+
+        self.openOutputFolderPushButton = QPushButton(self.centralwidget)
+        self.openOutputFolderPushButton.setObjectName(u"openOutputFolderPushButton")
+
+        self.outputFolderHorizontalLayout.addWidget(self.openOutputFolderPushButton)
 
 
         self.formLayout.setLayout(1, QFormLayout.SpanningRole, self.outputFolderHorizontalLayout)
@@ -179,7 +184,7 @@ class Ui_toolBoxMainWindow(object):
         toolBoxMainWindow.setStatusBar(self.statusbar)
         self.menuBar = QMenuBar(toolBoxMainWindow)
         self.menuBar.setObjectName(u"menuBar")
-        self.menuBar.setGeometry(QRect(0, 0, 742, 22))
+        self.menuBar.setGeometry(QRect(0, 0, 825, 22))
         self.menuBar.setAutoFillBackground(False)
         self.menu = QMenu(self.menuBar)
         self.menu.setObjectName(u"menu")
@@ -201,6 +206,7 @@ class Ui_toolBoxMainWindow(object):
         self.recursiveloadingCheckBox.setText(QCoreApplication.translate("toolBoxMainWindow", u"\u9012\u5f52\u8f7d\u5165", None))
         self.outputFolderlabel.setText(QCoreApplication.translate("toolBoxMainWindow", u"\u8f93\u51fa\u6587\u4ef6\u5939", None))
         self.outputFolderPushButton.setText(QCoreApplication.translate("toolBoxMainWindow", u"\u9009\u62e9\u6587\u4ef6\u5939", None))
+        self.openOutputFolderPushButton.setText(QCoreApplication.translate("toolBoxMainWindow", u"\u5728\u8d44\u6e90\u7ba1\u7406\u5668\u4e2d\u6253\u5f00\u6587\u4ef6\u5939", None))
         self.convertImageFormatCheckBox.setText(QCoreApplication.translate("toolBoxMainWindow", u"\u8f6c\u5316\u56fe\u7247\u683c\u5f0f", None))
         self.convertImageFormatComboBox.setItemText(0, QCoreApplication.translate("toolBoxMainWindow", u"jpeg", None))
         self.convertImageFormatComboBox.setItemText(1, QCoreApplication.translate("toolBoxMainWindow", u"png", None))

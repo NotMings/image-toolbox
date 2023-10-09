@@ -44,6 +44,7 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
         self.inputFolderlineEdit.textChanged.connect(self.input_folder_line_edit_changed)
         self.outputFolderPushButton.clicked.connect(self.output_button_clicked)
         self.outputFolderlineEdit.textChanged.connect(self.output_folder_line_edit_changed)
+        self.openOutputFolderPushButton.clicked.connect(self.open_output_folder_push_button_clicked)
 
         # 图片格式化
         self.convertImageFormatCheckBox.clicked.connect(self.convert_image_format_check_box_clicked)
@@ -81,6 +82,13 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
 
     def output_folder_line_edit_changed(self):
         self.output_folder = self.outputFolderlineEdit.text()
+
+    def open_output_folder_push_button_clicked(self):
+        if self.output_folder is None:
+            QMessageBox.warning(self, 'Warning', '请选择输出文件夹')
+            return
+        else:
+            os.startfile(self.output_folder)
 
     def convert_image_format_check_box_clicked(self):
         if self.convertImageFormatCheckBox.isChecked() is True:
