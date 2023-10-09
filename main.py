@@ -86,7 +86,7 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
         if self.convertImageFormatCheckBox.isChecked() is True:
             self.convertImageFormatComboBox.setEnabled(True)
 
-            default_index = 0
+            default_index = 0 if self.image_format is None else self.image_format
             self.convertImageFormatComboBox.setCurrentIndex(default_index)
             self.image_format = default_index
             self.is_selected_convert_image_format = True
@@ -105,6 +105,7 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
         else:
             self.compressImageDoubleSpinBox.setEnabled(False)
             self.is_selected_compress_image = False
+            self.image_target_size = None
 
     def compress_image_double_spin_box_changed(self):
         self.image_target_size = self.compressImageDoubleSpinBox.value()
@@ -113,7 +114,7 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
         if self.renameImageCheckBox.isChecked() is True:
             self.renameImageComboBox.setEnabled(True)
 
-            default_index = 0
+            default_index = 0 if self.rename_image_method is None else self.rename_image_method
             self.renameImageComboBox.setCurrentIndex(default_index)
             self.rename_image_method = default_index
             self.is_selected_rename_image = True

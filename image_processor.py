@@ -73,10 +73,6 @@ class ImageProcessor(QObject):
                 image_format = find_field_by_value(ImageFormat, self.kwargs.get('image_format', ImageFormat.JPEG.value))
                 original_image_format = image_format
 
-                buffer = io.BytesIO()
-                image.save(buffer, format=original_image_format.upper())
-                image = Image.open(buffer)
-
             if self.kwargs.get('is_selected_compress_image', False) is True:
                 if console_callback is not None:
                     console_callback('正在压缩图片: ' + original_image_name)
@@ -125,18 +121,10 @@ class ImageProcessor(QObject):
                 elif rename_image_method == RenameImageMethod.AUTO_INCREMENT_NUMBER.value:
                     original_image_name = str(i) + '.' + original_image_format.lower()
 
-                if buffer is None:
-                    buffer = io.BytesIO()
-                    image.save(buffer, format=original_image_format.upper())
-                    image = Image.open(buffer)
-
             new_name = os.path.splitext(original_image_name)[0] + '.' + original_image_format.lower()
             new_path = os.path.join(output_folder, new_name)
 
-            buffer.seek(0)
-            with open(new_path, 'wb') as f_out:
-                f_out.write(buffer.read())
-            buffer.close()
+            image.save(new_path, format=original_image_format.upper(), optimize=True)
 
             i += 1
             if progress_callback is not None:
