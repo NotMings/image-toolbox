@@ -135,11 +135,11 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
         self.rename_image_method = self.renameImageComboBox.currentIndex()
 
     def start_processing(self):
-        if self.input_folder is None:
+        if self.input_folder is None or self.input_folder == '':
             QMessageBox.warning(self, 'Warning', '请选择输入文件夹')
             return
 
-        if self.output_folder is None:
+        if self.output_folder is None or self.output_folder == '':
             QMessageBox.warning(self, 'Warning', '请选择输出文件夹')
             return
 
@@ -188,7 +188,7 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
             'About',
             '<div>'
             '<h1>IMAGE TOOlBOX</h1>'
-            '<p>Version: 1.1.0</p>'
+            '<p>Version: 1.1.1</p>'
             '<p>Author: 不明</p>'
             '<p>GitHub Link: '
             '<a href="https://github.com/notmings/image-toolbox">https://github.com/notmings/image-toolbox</a>'
