@@ -61,6 +61,9 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
         self.renameImageComboBox.setEnabled(False)
         self.renameImageComboBox.currentIndexChanged.connect(self.rename_image_combo_box_changed)
 
+        # 控制台输出框
+        self.consoleTextEdit.setReadOnly(True)
+
         # 开始按钮
         self.startProcessingPushButton.clicked.connect(self.start_processing)
 
