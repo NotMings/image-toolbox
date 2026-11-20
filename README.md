@@ -1,42 +1,47 @@
 # Image Toolbox
-图片工具箱是一个简单的图像处理工具，它目前提供了图像格式转换、压缩图片、重命名图片、多线程批量处理以及暂停/继续处理的功能，后续会添加新的功能。
+
+基于 Python + PySide6 的图片批量处理工具，支持图形界面和命令行两种模式。
+
+## 运行
+
+运行打包后的程序 `dist/main/main.exe`：
+
+```powershell
+.\dist\main\main.exe
+```
+
+双击启动图形界面；带参数运行命令行模式（无桌面环境同样可用）：
+
+```powershell
+.\dist\main\main.exe --help
+.\dist\main\main.exe -i .\photos -o .\out --format jpeg --recursive --threads 8
+.\dist\main\main.exe -i .\photos -o .\out --compress 100
+```
+
+查看全部参数：`--help`（也支持 `-h`）；`--version` 查看版本。
+
+命令行退出码：`0` 成功，`1` 参数或运行错误，`2` 有图片失败/跳过，`3` 被取消。
 
 ## 功能
-### 图片格式转换
-可以转换图片的格式。例如，将png格式的图片转换为jpeg格式的图片。
 
-### 图片压缩
-可以压缩图片到指定的大小近似值。
+- 格式转换：JPEG / PNG / WebP
+- 压缩：压缩到目标 KB，必要时自动裁剪
+- 重命名：UUID / MD5 / 自增序号
+- 多线程：1-128 个线程
+- 暂停 / 取消（正在处理的图片完成后停止）
+- 透明图片转 JPEG、输出重名时弹窗询问处理方式
 
-注意，并不是所有的图片都可以压缩到指定的大小，因为图片的压缩率是有限的。
-当无法压缩到指定大小时，会裁剪图片避免出现图像失真的情况。
+## 编译
 
-### 重命名图片
-可以重命名图片，重命名后的图片会按照指定的规则进行命名。
+```powershell
+pip install pillow pyside6 pyinstaller
+pyinstaller main.py
+```
 
-### 多线程处理
-可以在界面上通过滑块或输入框设置处理线程数量（1-128，默认 4），同时处理多张图片，加快批量处理速度。
+生成的可执行文件在 `dist/main/`。
 
-### 取消处理
-处理过程中可以点击“取消”按钮：正在处理的那张图片（多线程时为正在处理的几张）会先处理完成，之后不再处理剩余图片，已输出的文件会保留。暂停状态下点击取消会自动恢复，并在完成当前图片后停止。
+## 注意
 
-> 在转换或压缩图像时，请确保您有权修改原始文件。请尊重版权法规。
-
-## 编译 / 打包
-本项目使用 PyInstaller 打包为可执行文件，在项目根目录执行以下步骤：
-
-1. 安装依赖（任选一种）：
-
-   ```powershell
-   pipenv install --dev
-   ```
-
-   ```powershell
-   python -m pip install pillow pyside6 pyinstaller
-   ```
-
-2. 执行打包命令：
-
-   ```powershell
-   pyinstaller --noconfirm --clean --windowed --onefile --name image-toolbox --icon assets/icon.png --add-data "assets;assets" main.py
-   ```
+- 输出文件与已有文件重名时会询问处理方式，建议输出到空文件夹。
+- 压缩率有限，目标过小时会裁剪图片。
+- 请确保您有权修改原始文件，尊重版权。

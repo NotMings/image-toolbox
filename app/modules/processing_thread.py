@@ -1,9 +1,13 @@
+"""后台处理线程：在 QThread 中运行处理函数，并转发进度、日志、暂停/取消和询问状态。"""
+
 import threading
 
-from PySide6.QtCore import (QThread, Signal)
+from PySide6.QtCore import QThread, Signal
 
 
 class ProcessingThread(QThread):
+    """包装处理函数的工作线程。"""
+
     signal_result = Signal(object)
     signal_finished = Signal()
 
@@ -45,7 +49,7 @@ class ProcessingThread(QThread):
                 pause_callback=self.check_point,
                 question_callback=self.ask_question,
                 cancel_callback=self.is_cancel_requested,
-                **self.kwargs
+                **self.kwargs,
             )
             # 任务完成后发出信号
             self.signal_result.emit(result)

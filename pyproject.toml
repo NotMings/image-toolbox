@@ -1,0 +1,17 @@
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+exclude = [
+    ".git",
+    ".idea",
+    "build",
+    "dist",
+    "test",
+    "ui/compiled",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+
+[tool.ruff.format]
+quote-style = "single"

@@ -1,3 +1,5 @@
+"""扫描文件夹中的图片文件。"""
+
 import os
 
 from PIL import Image
@@ -5,6 +7,8 @@ from PIL import Image
 
 def _is_image_file(path):
     """尝试打开图片来识别文件类型，同时关闭文件句柄，避免扫描大文件夹时句柄泄漏。"""
+    # 扫描阶段无法打开的文件一律跳过，避免单个坏文件中断整批处理
+    # noinspection PyBroadException
     try:
         with Image.open(path):
             pass

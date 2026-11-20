@@ -1,3 +1,5 @@
+"""图片处理核心：批量格式转换、压缩、重命名，支持多线程、暂停/取消和交互询问。"""
+
 import hashlib
 import io
 import itertools
@@ -11,7 +13,6 @@ import uuid
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
 from PIL import Image, ImageOps
-from PySide6.QtCore import QObject
 
 from app.enums.image_format import ImageFormat
 from app.enums.rename_image_method import RenameImageMethod
@@ -22,14 +23,15 @@ class _ProcessingAborted(Exception):
     """内部使用：用户取消处理时中止当前图片。"""
 
 
-def find_field_by_value(enum, value):
+def _find_field_by_value(enum, value):
+    """按枚举值查找枚举成员名，找不到时返回 None。"""
     for item in enum:
         if item.value == value:
             return item.name
     return None
 
 
-def convert_mode_for_format(image, image_format, alpha_to_white=True):
+def _convert_mode_for_format(image, image_format, alpha_to_white=True):
     """把图片转换为目标格式支持的色彩模式，避免 RGBA/P/CMYK 等模式保存时失败。
 
     alpha_to_white: 转 JPEG 时，True 表示把透明区域合成到白色背景，False 表示合成到黑色背景。
@@ -51,8 +53,7 @@ def convert_mode_for_format(image, image_format, alpha_to_white=True):
         return image.convert('RGB')
 
     if format_name == 'WEBP' and image.mode not in ('RGB', 'RGBA'):
-        has_alpha = image.mode in ('RGBA', 'LA', 'PA') or (
-            image.mode == 'P' and 'transparency' in image.info)
+        has_alpha = image.mode in ('RGBA', 'LA', 'PA') or (image.mode == 'P' and 'transparency' in image.info)
         return image.convert('RGBA' if has_alpha else 'RGB')
 
     if format_name == 'PNG' and image.mode == 'CMYK':
@@ -61,31 +62,26 @@ def convert_mode_for_format(image, image_format, alpha_to_white=True):
     return image
 
 
-class ImageProcessor(QObject):
-    input_folder = None
-    output_folder = None
-    kwargs = {}
+class ImageProcessor:
+    """图片处理器：一次 run() 完成一批图片的转换、压缩和重命名。"""
 
-    image_path = None
-
-    # 转 JPEG 时透明图片的处理方式：ask（询问）/ white（白底）/ black（黑底）/ skip（跳过）
-    ALPHA_HANDLING_VALUES = ('ask', 'white', 'black', 'skip')
-    # 输出文件名重复时的处理方式：ask（询问）/ overwrite（覆盖）/ rename（自动加序号）/ custom（自定义前缀）
-    DUPLICATE_HANDLING_VALUES = ('ask', 'overwrite', 'rename', 'custom')
+    _ALPHA_HANDLING_VALUES = ('ask', 'white', 'black', 'skip')
+    _DUPLICATE_HANDLING_VALUES = ('ask', 'overwrite', 'rename', 'custom')
 
     def __init__(self, input_folder, output_folder, **kwargs):
-        super().__init__()
-
         self.input_folder = input_folder
         self.output_folder = output_folder
         self.kwargs = kwargs
+        self.image_path = []
 
+        # 转 JPEG 时透明图片的处理方式：ask（询问）/ white（白底）/ black（黑底）/ skip（跳过）
         self.alpha_handling = self.kwargs.get('alpha_handling', 'ask')
-        if self.alpha_handling not in self.ALPHA_HANDLING_VALUES:
+        if self.alpha_handling not in self._ALPHA_HANDLING_VALUES:
             self.alpha_handling = 'ask'
 
+        # 输出文件名重复时的处理方式：ask（询问）/ overwrite（覆盖）/ rename（自动加序号）/ custom（自定义前缀）
         self.duplicate_handling = self.kwargs.get('duplicate_handling', 'ask')
-        if self.duplicate_handling not in self.DUPLICATE_HANDLING_VALUES:
+        if self.duplicate_handling not in self._DUPLICATE_HANDLING_VALUES:
             self.duplicate_handling = 'ask'
 
         # 输出文件夹中已存在的文件名（小写，忽略文件夹），用于检测同名覆盖
@@ -96,13 +92,13 @@ class ImageProcessor(QObject):
                     self.existing_output_names.add(name.lower())
 
     def run(
-            self,
-            progress_callback=None,
-            progress_count_callback=None,
-            console_callback=None,
-            pause_callback=None,
-            question_callback=None,
-            cancel_callback=None
+        self,
+        progress_callback=None,
+        progress_count_callback=None,
+        console_callback=None,
+        pause_callback=None,
+        question_callback=None,
+        cancel_callback=None,
     ):
         def log(message):
             if console_callback is not None:
@@ -202,23 +198,23 @@ class ImageProcessor(QObject):
         worker_count = self._get_worker_count()
         completed = [0]
 
-        def merge_record(record):
-            status = record.get('status')
+        def merge_record(record_data):
+            status = record_data.get('status')
             if status == 'success':
                 result['success'] += 1
             elif status == 'skipped':
                 result['skipped'] += 1
-                result['failed'].append(record.get('source'))
+                result['failed'].append(record_data.get('source'))
             elif status == 'failed':
-                result['failed'].append(record.get('source'))
+                result['failed'].append(record_data.get('source'))
             elif status == 'aborted':
                 result['aborted'] = True
             elif status == 'cancelled':
                 result['cancelled'] = True
 
-        def report_progress(record):
+        def report_progress(record_data):
             # 因取消而未处理的图片不推进进度
-            if record is not None and record.get('status') == 'cancelled':
+            if record_data is not None and record_data.get('status') == 'cancelled':
                 return
             completed[0] += 1
             if progress_callback is not None:
@@ -241,8 +237,7 @@ class ImageProcessor(QObject):
                 if record.get('status') == 'aborted':
                     break
         else:
-            with ThreadPoolExecutor(max_workers=worker_count,
-                                    thread_name_prefix='image-toolbox') as executor:
+            with ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix='image-toolbox') as executor:
                 pending = {}
                 path_iterator = iter(self.image_path)
 
@@ -301,23 +296,39 @@ class ImageProcessor(QObject):
             worker_count = 1
         return max(1, min(128, worker_count))
 
+    @staticmethod
+    def _close_image(image):
+        """尽力关闭图片文件句柄，忽略关闭时的异常。"""
+        if image is None:
+            return
+        # noinspection PyBroadException
+        try:
+            image.close()
+        except Exception:
+            pass
+
     def _process_image(self, image_path_item, context):
         log = context['log']
         check_point = context['check_point']
         source_name = os.path.basename(image_path_item)
 
+        image = None
+
         # 取消只影响尚未开始处理的图片
         if context['is_cancelled']():
+            self._close_image(image)
             return {'source': source_name, 'status': 'cancelled'}
 
         if not check_point():
+            self._close_image(image)
             return {'source': source_name, 'status': 'aborted'}
 
-        # 暂停期间被取消：恢复后不应再开始处理这张图片
+        # 暂停中收到取消请求：恢复后不再处理这张图片
         if context['is_cancelled']():
+            self._close_image(image)
             return {'source': source_name, 'status': 'cancelled'}
 
-        image = None
+        # noinspection PyBroadException
         try:
             image = Image.open(image_path_item)
             image.load()
@@ -337,8 +348,9 @@ class ImageProcessor(QObject):
 
             if self.kwargs.get('is_selected_convert_image_format', False) is True:
                 log('正在转换图片格式: ' + source_name)
-                converted_format = find_field_by_value(
-                    ImageFormat, self.kwargs.get('image_format', ImageFormat.JPEG.value))
+                converted_format = _find_field_by_value(
+                    ImageFormat, self.kwargs.get('image_format', ImageFormat.JPEG.value)
+                )
                 if converted_format is None:
                     raise ValueError('未知的目标图片格式')
                 output_format_name = converted_format
@@ -347,6 +359,7 @@ class ImageProcessor(QObject):
             if output_format_name.upper() in ('JPEG', 'MPO') and self._has_alpha(image):
                 with context['alpha_lock']:
                     if context['abort_event'].is_set():
+                        self._close_image(image)
                         return {'source': source_name, 'status': 'aborted'}
 
                     alpha_policy = context['alpha_policy']
@@ -357,38 +370,44 @@ class ImageProcessor(QObject):
                             alpha_policy = answer
                             context['alpha_policy'] = alpha_policy
                         else:
+                            self._close_image(image)
                             return {'source': source_name, 'status': 'aborted'}
 
                 if alpha_policy == 'skip':
                     log('已跳过透明图片（目标格式不支持透明通道）: ' + source_name)
+                    self._close_image(image)
                     return {'source': source_name, 'status': 'skipped'}
 
                 alpha_to_white = alpha_policy != 'black'
 
             if not check_point():
+                self._close_image(image)
                 return {'source': source_name, 'status': 'aborted'}
 
-            image = convert_mode_for_format(image, output_format_name, alpha_to_white)
+            image = _convert_mode_for_format(image, output_format_name, alpha_to_white)
 
             if self.kwargs.get('is_selected_compress_image', False) is True:
                 log('正在压缩图片: ' + source_name)
                 target_size = self.kwargs.get('image_target_size')
                 if target_size is not None and target_size > 0:
                     compressed_image = self._compress_image(
-                        image, output_format_name, float(target_size), log, check_point)
+                        image, output_format_name, float(target_size), log, check_point
+                    )
                     if compressed_image is None:
+                        self._close_image(image)
                         return {'source': source_name, 'status': 'aborted'}
                     image = compressed_image
 
             if not check_point():
+                self._close_image(image)
                 return {'source': source_name, 'status': 'aborted'}
 
             with context['name_lock']:
                 if context['abort_event'].is_set():
+                    self._close_image(image)
                     return {'source': source_name, 'status': 'aborted'}
 
-                final_name, needs_overwrite_lock = self._resolve_output_name(
-                    source_name, output_format_name, context)
+                final_name, needs_overwrite_lock = self._resolve_output_name(source_name, output_format_name, context)
 
             new_path = os.path.join(self.output_folder, final_name)
             save_format = self._save_format(output_format_name)
@@ -400,18 +419,15 @@ class ImageProcessor(QObject):
             else:
                 image.save(new_path, format=save_format, optimize=True)
 
+            self._close_image(image)
             return {'source': source_name, 'status': 'success'}
         except _ProcessingAborted:
+            self._close_image(image)
             return {'source': source_name, 'status': 'aborted'}
         except Exception as error:
             log('处理失败，已跳过: %s（%s）' % (source_name, error))
+            self._close_image(image)
             return {'source': source_name, 'status': 'failed', 'error': str(error)}
-        finally:
-            if image is not None:
-                try:
-                    image.close()
-                except Exception:
-                    pass
 
     def _resolve_output_name(self, source_name, output_format_name, context):
         """在名字锁内计算最终输出文件名；需要询问用户时在此弹窗。"""
@@ -420,14 +436,12 @@ class ImageProcessor(QObject):
 
         if self.kwargs.get('is_selected_rename_image', False) is True:
             log('正在重命名图片: ' + source_name)
-            rename_image_method = self.kwargs.get(
-                'rename_image_method', RenameImageMethod.UUID.value)
+            rename_image_method = self.kwargs.get('rename_image_method', RenameImageMethod.UUID.value)
             if rename_image_method == RenameImageMethod.AUTO_INCREMENT_NUMBER.value:
                 index = next(context['rename_counter'])
             else:
                 index = 0
-            original_image_name = self._build_new_name(
-                output_format_name, rename_image_method, index)
+            original_image_name = self._build_new_name(output_format_name, rename_image_method, index)
         else:
             original_image_name = source_name
 
@@ -441,13 +455,15 @@ class ImageProcessor(QObject):
 
             if duplicate_policy == 'ask':
                 context['duplicate_questions'].append(desired_name)
-                answer = context['ask']({
-                    'type': 'duplicate',
-                    'source_name': source_name,
-                    'desired_name': desired_name,
-                    'suggested_name': self._suggest_unique_name(desired_name, used_output_names),
-                    'in_batch': in_batch,
-                })
+                answer = context['ask'](
+                    {
+                        'type': 'duplicate',
+                        'source_name': source_name,
+                        'desired_name': desired_name,
+                        'suggested_name': self._suggest_unique_name(desired_name, used_output_names),
+                        'in_batch': in_batch,
+                    }
+                )
                 if answer == 'overwrite':
                     duplicate_policy = 'overwrite'
                 elif answer == 'rename':
@@ -465,8 +481,7 @@ class ImageProcessor(QObject):
                 needs_overwrite_lock = in_batch
                 log('输出文件已覆盖: ' + final_name)
             elif duplicate_policy == 'custom':
-                final_name = self._custom_unique_name(
-                    desired_name, context['duplicate_prefix'], used_output_names)
+                final_name = self._custom_unique_name(desired_name, context['duplicate_prefix'], used_output_names)
                 log('输出文件名重复，已重命名为: ' + final_name)
             else:
                 final_name = self._suggest_unique_name(desired_name, used_output_names)
@@ -482,8 +497,7 @@ class ImageProcessor(QObject):
 
     @staticmethod
     def _has_alpha(image):
-        return image.mode in ('RGBA', 'LA', 'PA') or (
-            image.mode == 'P' and 'transparency' in image.info)
+        return image.mode in ('RGBA', 'LA', 'PA') or (image.mode == 'P' and 'transparency' in image.info)
 
     @staticmethod
     def _encode_image(image, image_format, quality=None):

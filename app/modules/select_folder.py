@@ -1,6 +1,8 @@
+"""文件夹选择对话框的封装。"""
+
 from PySide6.QtWidgets import QFileDialog
 
 
 def select_folder(parent):
+    """弹出文件夹选择对话框，返回选中的文件夹路径。"""
     return QFileDialog.getExistingDirectory(parent, '选择文件夹', './')
-
