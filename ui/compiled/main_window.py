@@ -149,6 +149,12 @@ class Ui_toolBoxMainWindow(object):
 
         self.optionVerticalLayout.addWidget(self.startProcessingPushButton)
 
+        self.pauseProcessingPushButton = QPushButton(self.centralwidget)
+        self.pauseProcessingPushButton.setObjectName(u"pauseProcessingPushButton")
+        self.pauseProcessingPushButton.setEnabled(False)
+
+        self.optionVerticalLayout.addWidget(self.pauseProcessingPushButton)
+
 
         self.formLayout.setLayout(2, QFormLayout.LabelRole, self.optionVerticalLayout)
 
@@ -220,6 +226,7 @@ class Ui_toolBoxMainWindow(object):
         self.renameImageComboBox.setItemText(2, QCoreApplication.translate("toolBoxMainWindow", u"auto-increment number", None))
 
         self.startProcessingPushButton.setText(QCoreApplication.translate("toolBoxMainWindow", u"\u5f00\u59cb", None))
+        self.pauseProcessingPushButton.setText(QCoreApplication.translate("toolBoxMainWindow", u"\u6682\u505c", None))
         self.totalProgresslabel.setText(QCoreApplication.translate("toolBoxMainWindow", u"\u603b\u8fdb\u5ea6", None))
         self.menu.setTitle(QCoreApplication.translate("toolBoxMainWindow", u"\u5e2e\u52a9", None))
     # retranslateUi

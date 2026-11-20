@@ -38,8 +38,13 @@ class ImageProcessor(QObject):
             self,
             progress_callback=None,
             progress_count_callback=None,
-            console_callback=None
+            console_callback=None,
+            pause_callback=None
     ):
+        def check_point():
+            # 暂停时在这里阻塞，恢复后继续；返回 False 表示处理已被中止
+            return pause_callback() if pause_callback is not None else True
+
         if console_callback is not None:
             console_callback('正在载入图片...')
 
@@ -48,7 +53,7 @@ class ImageProcessor(QObject):
         if not self.image_path:
             if console_callback is not None:
                 console_callback('没有找到图片')
-            return
+            return None
 
         i = 0
 
@@ -57,6 +62,11 @@ class ImageProcessor(QObject):
             progress_count_callback(total_count)
 
         for image_path_item in self.image_path:
+            if not check_point():
+                if console_callback is not None:
+                    console_callback('处理已中止')
+                return None
+
             image = Image.open(image_path_item)
 
             # 获取原始图片的格式
@@ -87,6 +97,8 @@ class ImageProcessor(QObject):
                     if o_size <= image_target_size:
                         return image  # 如果当前图片大小小于等于目标大小，则无需压缩
                     while o_size > image_target_size and quality > min_quality:  # 添加质量下限判断
+                        if not check_point():
+                            return None
                         buffer = io.BytesIO()
                         image.save(buffer, format=original_image_format.upper(),
                                    quality=quality)  # 保存时修改quality参数，达到压缩的目的
@@ -95,6 +107,8 @@ class ImageProcessor(QObject):
 
                     # 如果质量已经达到最低限制，但是图像大小仍然大于目标大小，则尝试裁剪图像
                     while o_size > image_target_size and quality <= min_quality:  # 添加裁剪循环
+                        if not check_point():
+                            return None
                         width, height = image.size
                         new_width, new_height = int(width * 0.9), int(height * 0.9)  # 将图像尺寸缩小10%
                         image = ImageOps.fit(image, (new_width, new_height), Image.LANCZOS)
@@ -129,3 +143,6 @@ class ImageProcessor(QObject):
             i += 1
             if progress_callback is not None:
                 progress_callback(i)
+                return None
+            return None
+        return None

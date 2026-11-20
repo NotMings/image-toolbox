@@ -14,6 +14,9 @@ from app.modules.select_folder import select_folder
 from image_processor import ImageProcessor
 from ui.compiled.main_window import Ui_toolBoxMainWindow
 
+# 版本号：每次功能新增或问题修复后同步更新（功能更新升 minor，修复升 patch）
+VERSION = '1.2.0'
+
 
 class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
     input_folder = None
@@ -66,6 +69,10 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
 
         # 开始按钮
         self.startProcessingPushButton.clicked.connect(self.start_processing)
+
+        # 暂停/继续按钮
+        self.pauseProcessingPushButton.setEnabled(False)
+        self.pauseProcessingPushButton.clicked.connect(self.pause_processing)
 
         # 关于按钮
         self.actionAbout.triggered.connect(self.about_button_clicked)
@@ -180,10 +187,35 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
         self.main_processing_thread.signal_finished.connect(self.processing_finished)
         self.main_processing_thread.start()
 
+        self.pauseProcessingPushButton.setEnabled(True)
+        self.pauseProcessingPushButton.setText('暂停')
+
+    def pause_processing(self):
+        if self.main_processing_thread is None or not self.main_processing_thread.isRunning():
+            return
+
+        if self.main_processing_thread.is_paused():
+            self.main_processing_thread.resume()
+            self.pauseProcessingPushButton.setText('暂停')
+            self.consoleTextEdit.append('继续处理')
+        else:
+            self.main_processing_thread.pause()
+            self.pauseProcessingPushButton.setText('继续')
+            self.consoleTextEdit.append('已暂停，点击“继续”恢复处理')
+
     def processing_finished(self):
         self.startProcessingPushButton.setEnabled(True)
         self.startProcessingPushButton.setText('开始')
+        self.pauseProcessingPushButton.setEnabled(False)
+        self.pauseProcessingPushButton.setText('暂停')
         QMessageBox.information(self, 'Information', '处理完成')
+
+    def closeEvent(self, event):
+        # 窗口关闭时中止可能仍在运行（甚至处于暂停状态）的处理线程，避免进程无法退出
+        if self.main_processing_thread is not None and self.main_processing_thread.isRunning():
+            self.main_processing_thread.abort()
+            self.main_processing_thread.wait()
+        super().closeEvent(event)
 
     def about_button_clicked(self):
         QMessageBox.about(
@@ -191,7 +223,7 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
             'About',
             '<div>'
             '<h1>IMAGE TOOlBOX</h1>'
-            '<p>Version: 1.1.1</p>'
+            f'<p>Version: {VERSION}</p>'
             '<p>Author: 不明</p>'
             '<p>GitHub Link: '
             '<a href="https://github.com/notmings/image-toolbox">https://github.com/notmings/image-toolbox</a>'
