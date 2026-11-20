@@ -10,6 +10,8 @@ class ProcessingThread(QThread):
     signal_progress = Signal(int)
     signal_progress_count = Signal(int)
     signal_console = Signal(object)
+    signal_error = Signal(str)
+    signal_question = Signal(object)
 
     signal_paused = Signal()
     signal_resumed = Signal()
@@ -25,6 +27,11 @@ class ProcessingThread(QThread):
         self._paused = False
         self._aborted = False
 
+        # 需要用户选择时（如透明图片、输出重名），工作线程通过条件变量等待界面回答
+        self._question_condition = threading.Condition()
+        self._question_done = True
+        self._question_answer = None
+
     def run(self):
         try:
             result = self.func(
@@ -33,10 +40,16 @@ class ProcessingThread(QThread):
                 progress_count_callback=self.report_progress_count,
                 console_callback=self.report_console,
                 pause_callback=self.check_point,
+                question_callback=self.ask_question,
                 **self.kwargs
             )
             # 任务完成后发出信号
             self.signal_result.emit(result)
+        except Exception as error:
+            # 把异常反馈到界面，避免出现"处理完成"但实际上失败的情况
+            message = '%s: %s' % (type(error).__name__, error)
+            self.signal_console.emit('处理出错: ' + message)
+            self.signal_error.emit(message)
         finally:
             # 无论处理成功还是抛出异常，都通知界面恢复按钮状态
             self.signal_finished.emit()
@@ -57,11 +70,38 @@ class ProcessingThread(QThread):
         self.signal_resumed.emit()
 
     def abort(self):
-        """中止处理：唤醒可能正在暂停等待的线程，并让处理循环尽快退出。"""
+        """中止处理：唤醒可能正在暂停或等待用户回答的线程，并让处理循环尽快退出。"""
         with self._pause_condition:
             self._aborted = True
             self._paused = False
             self._pause_condition.notify_all()
+
+        with self._question_condition:
+            self._question_done = True
+            self._question_answer = 'cancel'
+            self._question_condition.notify_all()
+
+    def ask_question(self, question):
+        """在工作线程中向界面提问，并阻塞等待界面回答；中止时返回 None。"""
+        with self._question_condition:
+            if self._aborted:
+                return None
+            self._question_done = False
+            self._question_answer = None
+
+        self.signal_question.emit(question)
+
+        with self._question_condition:
+            while not self._question_done:
+                self._question_condition.wait()
+            return self._question_answer
+
+    def answer_question(self, answer):
+        """由界面线程调用，回答 ask_question 的提问。"""
+        with self._question_condition:
+            self._question_answer = answer
+            self._question_done = True
+            self._question_condition.notify_all()
 
     def is_paused(self):
         with self._pause_condition:
