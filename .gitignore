@@ -1,5 +1,7 @@
 .idea
-main.spec
+*.spec
 build
 dist
 test
+__pycache__/
+*.pyc

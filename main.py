@@ -15,7 +15,7 @@ from image_processor import ImageProcessor
 from ui.compiled.main_window import Ui_toolBoxMainWindow
 
 # 版本号：每次功能新增或问题修复后同步更新（功能更新升 minor，修复升 patch）
-VERSION = '1.2.2'
+VERSION = '1.3.1'
 
 
 class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
@@ -80,6 +80,10 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
         # 暂停/继续按钮
         self.pauseProcessingPushButton.setEnabled(False)
         self.pauseProcessingPushButton.clicked.connect(self.pause_processing)
+
+        # 线程数滑块与输入框双向同步
+        self.threadCountSlider.valueChanged.connect(self.threadCountSpinBox.setValue)
+        self.threadCountSpinBox.valueChanged.connect(self.threadCountSlider.setValue)
 
         # 关于按钮
         self.actionAbout.triggered.connect(self.about_button_clicked)
@@ -193,6 +197,7 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
 
         self.startProcessingPushButton.setEnabled(False)
         self.startProcessingPushButton.setText('正在处理...')
+        self._set_thread_controls_enabled(False)
 
         recursive = False
         if self.recursiveloadingCheckBox.isChecked() is True:
@@ -210,6 +215,7 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
             rename_image_method=self.rename_image_method,
             alpha_handling=self.alpha_handling,
             duplicate_handling=self.duplicate_handling,
+            thread_count=self.threadCountSpinBox.value(),
         )
 
         self.main_processing_thread = ProcessingThread(image_processor.run)
@@ -224,6 +230,10 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
 
         self.pauseProcessingPushButton.setEnabled(True)
         self.pauseProcessingPushButton.setText('暂停')
+
+    def _set_thread_controls_enabled(self, enabled):
+        self.threadCountSlider.setEnabled(enabled)
+        self.threadCountSpinBox.setEnabled(enabled)
 
     def pause_processing(self):
         if self.main_processing_thread is None or not self.main_processing_thread.isRunning():
@@ -343,6 +353,7 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
         self.startProcessingPushButton.setText('开始')
         self.pauseProcessingPushButton.setEnabled(False)
         self.pauseProcessingPushButton.setText('暂停')
+        self._set_thread_controls_enabled(True)
 
         # 关闭窗口时线程被中止，不再弹出提示框
         if self.is_closing is True:

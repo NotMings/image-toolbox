@@ -1,11 +1,14 @@
 import hashlib
 import io
+import itertools
 import os
 import random
 import re
 import string
+import threading
 import time
 import uuid
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
 from PIL import Image, ImageOps
 from PySide6.QtCore import QObject
@@ -13,6 +16,10 @@ from PySide6.QtCore import QObject
 from app.enums.image_format import ImageFormat
 from app.enums.rename_image_method import RenameImageMethod
 from app.modules.load_image_path_from_folder import load_image_path_from_folder
+
+
+class _ProcessingAborted(Exception):
+    """内部使用：用户取消处理时中止当前图片。"""
 
 
 def find_field_by_value(enum, value):
@@ -100,14 +107,42 @@ class ImageProcessor(QObject):
             if console_callback is not None:
                 console_callback(message)
 
-        def check_point():
-            # 暂停时在这里阻塞，恢复后继续；返回 False 表示处理已被中止
-            return pause_callback() if pause_callback is not None else True
+        # 多线程共享状态。注意：所有会被多个线程读写的状态都通过对应的锁保护
+        context = {
+            'abort_event': threading.Event(),
+            'question_lock': threading.Lock(),
+            'name_lock': threading.Lock(),
+            'alpha_lock': threading.Lock(),
+            'overwrite_save_lock': threading.Lock(),
+            'used_output_names': set(),
+            'rename_counter': itertools.count(),
+            'alpha_policy': self.alpha_handling,
+            'duplicate_policy': self.duplicate_handling,
+            'duplicate_prefix': '',
+            'alpha_questions': [],
+            'duplicate_questions': [],
+        }
 
         def ask(question):
-            if question_callback is None:
-                return None
-            return question_callback(question)
+            # 同一时间只允许一个线程向界面提问，避免多个弹窗互相干扰
+            with context['question_lock']:
+                if context['abort_event'].is_set():
+                    return 'cancel'
+                if question_callback is None:
+                    return None
+                answer = question_callback(question)
+                if answer is None or answer == 'cancel':
+                    context['abort_event'].set()
+                return answer
+
+        def check_point():
+            if context['abort_event'].is_set():
+                return False
+            return pause_callback() if pause_callback is not None else True
+
+        context['ask'] = ask
+        context['check_point'] = check_point
+        context['log'] = log
 
         result = {
             'total': 0,
@@ -115,9 +150,16 @@ class ImageProcessor(QObject):
             'failed': [],
             'skipped': 0,
             'aborted': False,
-            'alpha_questions': [],
-            'duplicate_questions': [],
+            'alpha_questions': context['alpha_questions'],
+            'duplicate_questions': context['duplicate_questions'],
         }
+
+        # 没有界面回调（例如脚本直接调用）时使用默认策略，避免处理卡住
+        if question_callback is None:
+            if context['alpha_policy'] == 'ask':
+                context['alpha_policy'] = 'white'
+            if context['duplicate_policy'] == 'ask':
+                context['duplicate_policy'] = 'rename'
 
         log('正在载入图片...')
         self.image_path = load_image_path_from_folder(
@@ -140,156 +182,259 @@ class ImageProcessor(QObject):
         if progress_count_callback is not None:
             progress_count_callback(total_count)
 
-        alpha_policy = self.alpha_handling
-        duplicate_policy = self.duplicate_handling
-        duplicate_prefix = ''
+        worker_count = self._get_worker_count()
+        completed = [0]
 
-        # 没有界面回调（例如脚本直接调用）时使用默认策略，避免处理卡住
-        if question_callback is None:
-            if alpha_policy == 'ask':
-                alpha_policy = 'white'
-            if duplicate_policy == 'ask':
-                duplicate_policy = 'rename'
-
-        used_output_names = set()
-
-        for index, image_path_item in enumerate(self.image_path):
-            if not check_point():
-                log('处理已中止')
+        def merge_record(record):
+            status = record.get('status')
+            if status == 'success':
+                result['success'] += 1
+            elif status == 'skipped':
+                result['skipped'] += 1
+                result['failed'].append(record.get('source'))
+            elif status == 'failed':
+                result['failed'].append(record.get('source'))
+            elif status == 'aborted':
                 result['aborted'] = True
-                return result
 
-            source_name = os.path.basename(image_path_item)
-            original_image_name = source_name
-            image = None
-            skipped = False
-            try:
-                image = Image.open(image_path_item)
-                image.load()
-
-                original_image_format = image.format
-                if not original_image_format:
-                    raise ValueError('无法识别图片格式')
-
-                # MPO 本质上是 JPEG 多图容器，按 JPEG 处理
-                if original_image_format.upper() == 'MPO':
-                    original_image_format = 'JPEG'
-
-                # 手机照片的方向信息在重新保存时会丢失，先按 EXIF 方向摆正像素
-                image = ImageOps.exif_transpose(image)
-
-                output_format_name = original_image_format
-
-                if self.kwargs.get('is_selected_convert_image_format', False) is True:
-                    log('正在转换图片格式: ' + source_name)
-                    converted_format = find_field_by_value(
-                        ImageFormat, self.kwargs.get('image_format', ImageFormat.JPEG.value))
-                    if converted_format is None:
-                        raise ValueError('未知的目标图片格式')
-                    output_format_name = converted_format
-
-                alpha_to_white = True
-                if output_format_name.upper() in ('JPEG', 'MPO') and self._has_alpha(image):
-                    if alpha_policy == 'ask':
-                        result['alpha_questions'].append(source_name)
-                        answer = ask({'type': 'alpha', 'source_name': source_name})
-                        if answer in ('white', 'black', 'skip'):
-                            alpha_policy = answer
-                        else:
-                            log('处理已中止')
-                            result['aborted'] = True
-                            return result
-
-                    if alpha_policy == 'skip':
-                        result['failed'].append(source_name)
-                        result['skipped'] += 1
-                        log('已跳过透明图片（目标格式不支持透明通道）: ' + source_name)
-                        skipped = True
-                    else:
-                        alpha_to_white = alpha_policy != 'black'
-
-                if not skipped:
-                    image = convert_mode_for_format(image, output_format_name, alpha_to_white)
-
-                    if self.kwargs.get('is_selected_compress_image', False) is True:
-                        log('正在压缩图片: ' + source_name)
-                        target_size = self.kwargs.get('image_target_size')
-                        if target_size is not None and target_size > 0:
-                            compressed_image = self._compress_image(
-                                image, output_format_name, float(target_size), log, check_point)
-                            if compressed_image is None:
-                                log('处理已中止')
-                                result['aborted'] = True
-                                return result
-                            image = compressed_image
-
-                    if self.kwargs.get('is_selected_rename_image', False) is True:
-                        log('正在重命名图片: ' + source_name)
-                        original_image_name = self._build_new_name(
-                            output_format_name,
-                            self.kwargs.get('rename_image_method', RenameImageMethod.UUID.value),
-                            result['success'],
-                        )
-
-                    desired_name = os.path.splitext(original_image_name)[0] + '.' + output_format_name.lower()
-                    final_name = desired_name
-
-                    if self._name_taken(desired_name, used_output_names):
-                        if duplicate_policy == 'ask':
-                            result['duplicate_questions'].append(desired_name)
-                            answer = ask({
-                                'type': 'duplicate',
-                                'source_name': source_name,
-                                'desired_name': desired_name,
-                                'suggested_name': self._suggest_unique_name(desired_name, used_output_names),
-                                'in_batch': desired_name.lower() in used_output_names,
-                            })
-                            if answer == 'overwrite':
-                                duplicate_policy = 'overwrite'
-                            elif answer == 'rename':
-                                duplicate_policy = 'rename'
-                            elif isinstance(answer, dict) and answer.get('action') == 'custom':
-                                duplicate_policy = 'custom'
-                                duplicate_prefix = answer.get('prefix') or ''
-                            else:
-                                log('处理已中止')
-                                result['aborted'] = True
-                                return result
-
-                        if duplicate_policy == 'overwrite':
-                            final_name = desired_name
-                            log('输出文件已覆盖: ' + final_name)
-                        elif duplicate_policy == 'custom':
-                            final_name = self._custom_unique_name(
-                                desired_name, duplicate_prefix, used_output_names)
-                            log('输出文件名重复，已重命名为: ' + final_name)
-                        else:
-                            final_name = self._suggest_unique_name(desired_name, used_output_names)
-                            log('输出文件名重复，已重命名为: ' + final_name)
-
-                    used_output_names.add(final_name.lower())
-
-                    new_path = os.path.join(self.output_folder, final_name)
-                    image.save(new_path, format=self._save_format(output_format_name), optimize=True)
-
-                    result['success'] += 1
-            except Exception as error:
-                result['failed'].append(source_name)
-                log('处理失败，已跳过: %s（%s）' % (source_name, error))
-            finally:
-                if image is not None:
-                    try:
-                        image.close()
-                    except Exception:
-                        pass
-
+        def report_progress():
+            completed[0] += 1
             if progress_callback is not None:
-                progress_callback(index + 1)
+                progress_callback(completed[0])
+
+        if worker_count <= 1:
+            for image_path_item in self.image_path:
+                if not check_point():
+                    result['aborted'] = True
+                    break
+
+                record = self._process_image(image_path_item, context)
+                merge_record(record)
+                report_progress()
+
+                if record.get('status') == 'aborted':
+                    break
+        else:
+            with ThreadPoolExecutor(max_workers=worker_count,
+                                    thread_name_prefix='image-toolbox') as executor:
+                pending = {}
+                path_iterator = iter(self.image_path)
+
+                def submit_more():
+                    while len(pending) < worker_count * 2:
+                        try:
+                            path = next(path_iterator)
+                        except StopIteration:
+                            return
+                        pending[executor.submit(self._process_image, path, context)] = path
+
+                submit_more()
+                while pending:
+                    done, _ = wait(list(pending), return_when=FIRST_COMPLETED)
+                    aborted = False
+
+                    for future in done:
+                        image_path_item = pending.pop(future)
+                        try:
+                            record = future.result()
+                        except Exception as error:
+                            record = {
+                                'source': os.path.basename(image_path_item),
+                                'status': 'failed',
+                                'error': str(error),
+                            }
+
+                        merge_record(record)
+                        report_progress()
+                        if record.get('status') == 'aborted':
+                            aborted = True
+
+                    if aborted:
+                        context['abort_event'].set()
+                        for future in list(pending):
+                            future.cancel()
+                        pending.clear()
+                        break
+
+                    submit_more()
 
         log('处理完成: 成功 %d 张，失败 %d 张' % (result['success'], len(result['failed'])))
         if result['skipped'] > 0:
             log('其中因透明通道跳过 %d 张' % result['skipped'])
         return result
+
+    def _get_worker_count(self):
+        try:
+            worker_count = int(self.kwargs.get('thread_count', 1))
+        except (TypeError, ValueError):
+            worker_count = 1
+        return max(1, min(128, worker_count))
+
+    def _process_image(self, image_path_item, context):
+        log = context['log']
+        check_point = context['check_point']
+        source_name = os.path.basename(image_path_item)
+
+        if not check_point():
+            return {'source': source_name, 'status': 'aborted'}
+
+        image = None
+        try:
+            image = Image.open(image_path_item)
+            image.load()
+
+            original_image_format = image.format
+            if not original_image_format:
+                raise ValueError('无法识别图片格式')
+
+            # MPO 本质上是 JPEG 多图容器，按 JPEG 处理
+            if original_image_format.upper() == 'MPO':
+                original_image_format = 'JPEG'
+
+            # 手机照片的方向信息在重新保存时会丢失，先按 EXIF 方向摆正像素
+            image = ImageOps.exif_transpose(image)
+
+            output_format_name = original_image_format
+
+            if self.kwargs.get('is_selected_convert_image_format', False) is True:
+                log('正在转换图片格式: ' + source_name)
+                converted_format = find_field_by_value(
+                    ImageFormat, self.kwargs.get('image_format', ImageFormat.JPEG.value))
+                if converted_format is None:
+                    raise ValueError('未知的目标图片格式')
+                output_format_name = converted_format
+
+            alpha_to_white = True
+            if output_format_name.upper() in ('JPEG', 'MPO') and self._has_alpha(image):
+                with context['alpha_lock']:
+                    if context['abort_event'].is_set():
+                        return {'source': source_name, 'status': 'aborted'}
+
+                    alpha_policy = context['alpha_policy']
+                    if alpha_policy == 'ask':
+                        context['alpha_questions'].append(source_name)
+                        answer = context['ask']({'type': 'alpha', 'source_name': source_name})
+                        if answer in ('white', 'black', 'skip'):
+                            alpha_policy = answer
+                            context['alpha_policy'] = alpha_policy
+                        else:
+                            return {'source': source_name, 'status': 'aborted'}
+
+                if alpha_policy == 'skip':
+                    log('已跳过透明图片（目标格式不支持透明通道）: ' + source_name)
+                    return {'source': source_name, 'status': 'skipped'}
+
+                alpha_to_white = alpha_policy != 'black'
+
+            if not check_point():
+                return {'source': source_name, 'status': 'aborted'}
+
+            image = convert_mode_for_format(image, output_format_name, alpha_to_white)
+
+            if self.kwargs.get('is_selected_compress_image', False) is True:
+                log('正在压缩图片: ' + source_name)
+                target_size = self.kwargs.get('image_target_size')
+                if target_size is not None and target_size > 0:
+                    compressed_image = self._compress_image(
+                        image, output_format_name, float(target_size), log, check_point)
+                    if compressed_image is None:
+                        return {'source': source_name, 'status': 'aborted'}
+                    image = compressed_image
+
+            if not check_point():
+                return {'source': source_name, 'status': 'aborted'}
+
+            with context['name_lock']:
+                if context['abort_event'].is_set():
+                    return {'source': source_name, 'status': 'aborted'}
+
+                final_name, needs_overwrite_lock = self._resolve_output_name(
+                    source_name, output_format_name, context)
+
+            new_path = os.path.join(self.output_folder, final_name)
+            save_format = self._save_format(output_format_name)
+
+            if needs_overwrite_lock:
+                # 同一批次内同名覆盖时串行写入，避免多个线程同时写同一个文件
+                with context['overwrite_save_lock']:
+                    image.save(new_path, format=save_format, optimize=True)
+            else:
+                image.save(new_path, format=save_format, optimize=True)
+
+            return {'source': source_name, 'status': 'success'}
+        except _ProcessingAborted:
+            return {'source': source_name, 'status': 'aborted'}
+        except Exception as error:
+            log('处理失败，已跳过: %s（%s）' % (source_name, error))
+            return {'source': source_name, 'status': 'failed', 'error': str(error)}
+        finally:
+            if image is not None:
+                try:
+                    image.close()
+                except Exception:
+                    pass
+
+    def _resolve_output_name(self, source_name, output_format_name, context):
+        """在名字锁内计算最终输出文件名；需要询问用户时在此弹窗。"""
+        log = context['log']
+        used_output_names = context['used_output_names']
+
+        if self.kwargs.get('is_selected_rename_image', False) is True:
+            log('正在重命名图片: ' + source_name)
+            rename_image_method = self.kwargs.get(
+                'rename_image_method', RenameImageMethod.UUID.value)
+            if rename_image_method == RenameImageMethod.AUTO_INCREMENT_NUMBER.value:
+                index = next(context['rename_counter'])
+            else:
+                index = 0
+            original_image_name = self._build_new_name(
+                output_format_name, rename_image_method, index)
+        else:
+            original_image_name = source_name
+
+        desired_name = os.path.splitext(original_image_name)[0] + '.' + output_format_name.lower()
+        final_name = desired_name
+        needs_overwrite_lock = False
+
+        if self._name_taken(desired_name, used_output_names):
+            in_batch = desired_name.lower() in used_output_names
+            duplicate_policy = context['duplicate_policy']
+
+            if duplicate_policy == 'ask':
+                context['duplicate_questions'].append(desired_name)
+                answer = context['ask']({
+                    'type': 'duplicate',
+                    'source_name': source_name,
+                    'desired_name': desired_name,
+                    'suggested_name': self._suggest_unique_name(desired_name, used_output_names),
+                    'in_batch': in_batch,
+                })
+                if answer == 'overwrite':
+                    duplicate_policy = 'overwrite'
+                elif answer == 'rename':
+                    duplicate_policy = 'rename'
+                elif isinstance(answer, dict) and answer.get('action') == 'custom':
+                    duplicate_policy = 'custom'
+                    context['duplicate_prefix'] = answer.get('prefix') or ''
+                else:
+                    context['abort_event'].set()
+                    raise _ProcessingAborted()
+                context['duplicate_policy'] = duplicate_policy
+
+            if duplicate_policy == 'overwrite':
+                final_name = desired_name
+                needs_overwrite_lock = in_batch
+                log('输出文件已覆盖: ' + final_name)
+            elif duplicate_policy == 'custom':
+                final_name = self._custom_unique_name(
+                    desired_name, context['duplicate_prefix'], used_output_names)
+                log('输出文件名重复，已重命名为: ' + final_name)
+            else:
+                final_name = self._suggest_unique_name(desired_name, used_output_names)
+                log('输出文件名重复，已重命名为: ' + final_name)
+
+        used_output_names.add(final_name.lower())
+        return final_name, needs_overwrite_lock
 
     @staticmethod
     def _save_format(image_format):

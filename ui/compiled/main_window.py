@@ -19,7 +19,7 @@ from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDoubleSpinBox,
     QFormLayout, QHBoxLayout, QLabel, QLineEdit,
     QMainWindow, QMenu, QMenuBar, QProgressBar,
-    QPushButton, QSizePolicy, QStatusBar, QTextEdit,
+    QPushButton, QSizePolicy, QSlider, QSpinBox, QStatusBar, QTextEdit,
     QVBoxLayout, QWidget)
 
 class Ui_toolBoxMainWindow(object):
@@ -144,6 +144,35 @@ class Ui_toolBoxMainWindow(object):
 
         self.optionVerticalLayout.addLayout(self.renameImageHorizontalLayout)
 
+        self.threadCountHorizontalLayout = QHBoxLayout()
+        self.threadCountHorizontalLayout.setObjectName(u"threadCountHorizontalLayout")
+        self.threadCountLabel = QLabel(self.centralwidget)
+        self.threadCountLabel.setObjectName(u"threadCountLabel")
+
+        self.threadCountHorizontalLayout.addWidget(self.threadCountLabel)
+
+        self.threadCountSlider = QSlider(self.centralwidget)
+        self.threadCountSlider.setObjectName(u"threadCountSlider")
+        self.threadCountSlider.setMinimum(1)
+        self.threadCountSlider.setMaximum(128)
+        self.threadCountSlider.setSingleStep(1)
+        self.threadCountSlider.setPageStep(8)
+        self.threadCountSlider.setValue(4)
+        self.threadCountSlider.setOrientation(Qt.Orientation.Horizontal)
+
+        self.threadCountHorizontalLayout.addWidget(self.threadCountSlider)
+
+        self.threadCountSpinBox = QSpinBox(self.centralwidget)
+        self.threadCountSpinBox.setObjectName(u"threadCountSpinBox")
+        self.threadCountSpinBox.setMinimum(1)
+        self.threadCountSpinBox.setMaximum(128)
+        self.threadCountSpinBox.setValue(4)
+
+        self.threadCountHorizontalLayout.addWidget(self.threadCountSpinBox)
+
+
+        self.optionVerticalLayout.addLayout(self.threadCountHorizontalLayout)
+
         self.startProcessingPushButton = QPushButton(self.centralwidget)
         self.startProcessingPushButton.setObjectName(u"startProcessingPushButton")
 
@@ -225,6 +254,9 @@ class Ui_toolBoxMainWindow(object):
         self.renameImageComboBox.setItemText(1, QCoreApplication.translate("toolBoxMainWindow", u"md5", None))
         self.renameImageComboBox.setItemText(2, QCoreApplication.translate("toolBoxMainWindow", u"auto-increment number", None))
 
+        self.threadCountLabel.setText(QCoreApplication.translate("toolBoxMainWindow", u"\u7ebf\u7a0b\u6570", None))
+        self.threadCountSlider.setToolTip(QCoreApplication.translate("toolBoxMainWindow", u"\u62d6\u52a8\u8bbe\u7f6e\u7ebf\u7a0b\u6570\uff081-128\uff09", None))
+        self.threadCountSpinBox.setToolTip(QCoreApplication.translate("toolBoxMainWindow", u"\u624b\u52a8\u8f93\u5165\u7ebf\u7a0b\u6570\uff081-128\uff09", None))
         self.startProcessingPushButton.setText(QCoreApplication.translate("toolBoxMainWindow", u"\u5f00\u59cb", None))
         self.pauseProcessingPushButton.setText(QCoreApplication.translate("toolBoxMainWindow", u"\u6682\u505c", None))
         self.totalProgresslabel.setText(QCoreApplication.translate("toolBoxMainWindow", u"\u603b\u8fdb\u5ea6", None))

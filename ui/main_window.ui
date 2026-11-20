@@ -173,6 +173,58 @@
        </layout>
       </item>
       <item>
+       <layout class="QHBoxLayout" name="threadCountHorizontalLayout">
+        <item>
+         <widget class="QLabel" name="threadCountLabel">
+          <property name="text">
+           <string>线程数</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QSlider" name="threadCountSlider">
+          <property name="toolTip">
+           <string>拖动设置线程数（1-128）</string>
+          </property>
+          <property name="minimum">
+           <number>1</number>
+          </property>
+          <property name="maximum">
+           <number>128</number>
+          </property>
+          <property name="singleStep">
+           <number>1</number>
+          </property>
+          <property name="pageStep">
+           <number>8</number>
+          </property>
+          <property name="value">
+           <number>4</number>
+          </property>
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QSpinBox" name="threadCountSpinBox">
+          <property name="toolTip">
+           <string>手动输入线程数（1-128）</string>
+          </property>
+          <property name="minimum">
+           <number>1</number>
+          </property>
+          <property name="maximum">
+           <number>128</number>
+          </property>
+          <property name="value">
+           <number>4</number>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
        <widget class="QPushButton" name="startProcessingPushButton">
         <property name="text">
          <string>开始</string>
