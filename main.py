@@ -15,7 +15,7 @@ from image_processor import ImageProcessor
 from ui.compiled.main_window import Ui_toolBoxMainWindow
 
 # 版本号：每次功能新增或问题修复后同步更新（功能更新升 minor，修复升 patch）
-VERSION = '1.2.0'
+VERSION = '1.2.1'
 
 
 class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):

@@ -18,6 +18,7 @@ def find_field_by_value(enum, value):
     for item in enum:
         if item.value == value:
             return item.name
+    return None
 
 
 class ImageProcessor(QObject):
@@ -94,29 +95,28 @@ class ImageProcessor(QObject):
                     min_quality = 20  # 设置最低质量限制
 
                     o_size = len(image.tobytes()) / 1024  # 获取图片大小
-                    if o_size <= image_target_size:
-                        return image  # 如果当前图片大小小于等于目标大小，则无需压缩
-                    while o_size > image_target_size and quality > min_quality:  # 添加质量下限判断
-                        if not check_point():
-                            return None
-                        buffer = io.BytesIO()
-                        image.save(buffer, format=original_image_format.upper(),
-                                   quality=quality)  # 保存时修改quality参数，达到压缩的目的
-                        quality -= step  # 每次循环，quality减小，以达到更小的文件大小
-                        o_size = len(buffer.getvalue()) / 1024
+                    if o_size > image_target_size:  # 小于等于目标大小时无需压缩，直接保存原图
+                        while o_size > image_target_size and quality > min_quality:  # 添加质量下限判断
+                            if not check_point():
+                                return None
+                            buffer = io.BytesIO()
+                            image.save(buffer, format=original_image_format.upper(),
+                                       quality=quality)  # 保存时修改quality参数，达到压缩的目的
+                            quality -= step  # 每次循环，quality减小，以达到更小的文件大小
+                            o_size = len(buffer.getvalue()) / 1024
 
-                    # 如果质量已经达到最低限制，但是图像大小仍然大于目标大小，则尝试裁剪图像
-                    while o_size > image_target_size and quality <= min_quality:  # 添加裁剪循环
-                        if not check_point():
-                            return None
-                        width, height = image.size
-                        new_width, new_height = int(width * 0.9), int(height * 0.9)  # 将图像尺寸缩小10%
-                        image = ImageOps.fit(image, (new_width, new_height), Image.LANCZOS)
-                        buffer = io.BytesIO()
-                        image.save(buffer, format=original_image_format.upper(), quality=quality)
-                        o_size = len(buffer.getvalue()) / 1024
+                        # 如果质量已经达到最低限制，但是图像大小仍然大于目标大小，则尝试裁剪图像
+                        while o_size > image_target_size and quality <= min_quality:  # 添加裁剪循环
+                            if not check_point():
+                                return None
+                            width, height = image.size
+                            new_width, new_height = int(width * 0.9), int(height * 0.9)  # 将图像尺寸缩小10%
+                            image = ImageOps.fit(image, (new_width, new_height), Image.Resampling.LANCZOS)
+                            buffer = io.BytesIO()
+                            image.save(buffer, format=original_image_format.upper(), quality=quality)
+                            o_size = len(buffer.getvalue()) / 1024
 
-                    image = Image.open(buffer)
+                        image = Image.open(buffer)
 
             if self.kwargs.get('is_selected_rename_image', False) is True:
                 if console_callback is not None:
@@ -143,6 +143,5 @@ class ImageProcessor(QObject):
             i += 1
             if progress_callback is not None:
                 progress_callback(i)
-                return None
-            return None
+
         return None
