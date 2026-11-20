@@ -4,6 +4,8 @@ import threading
 
 from PySide6.QtCore import QThread, Signal
 
+from app.i18n import tr
+
 
 class ProcessingThread(QThread):
     """包装处理函数的工作线程。"""
@@ -56,7 +58,7 @@ class ProcessingThread(QThread):
         except Exception as error:
             # 把异常反馈到界面，避免出现"处理完成"但实际上失败的情况
             message = '%s: %s' % (type(error).__name__, error)
-            self.signal_console.emit('处理出错: ' + message)
+            self.signal_console.emit(tr('Processing error: %s') % message)
             self.signal_error.emit(message)
         finally:
             # 无论处理成功还是抛出异常，都通知界面恢复按钮状态

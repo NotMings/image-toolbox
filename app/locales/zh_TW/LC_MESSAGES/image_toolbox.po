@@ -1,0 +1,257 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: image-toolbox 1.6.3\n"
+"Language: zh_TW\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+msgid "%d image(s) skipped because of transparency."
+msgstr "其中 %d 張因透明通道被略過。"
+
+msgid "%d skipped due to transparency"
+msgstr "其中因透明通道略過 %d 張"
+
+msgid ".\nChoose how to handle it (applies to the rest of this batch):"
+msgstr "。\n請選擇處理方式（本批次後續重名檔案沿用此選擇）："
+
+msgid "A file named \"%s\" already exists in the output folder"
+msgstr "輸出資料夾中已存在檔案「%s」"
+
+msgid "About"
+msgstr "關於"
+
+msgid "Author"
+msgstr "作者"
+
+msgid "Auto-rename"
+msgstr "自動加序號"
+
+msgid "Cancel"
+msgstr "取消"
+
+msgid "Cancel processing"
+msgstr "取消處理"
+
+msgid "Cancelled: %d succeeded, %d failed"
+msgstr "處理已取消: 成功 %d 張，失敗 %d 張"
+
+msgid "Cancelled: %d succeeded, %d failed."
+msgstr "處理已取消：成功 %d 張，失敗 %d 張。"
+
+msgid "Cancelling..."
+msgstr "正在取消..."
+
+msgid "Cancelling; waiting for the current image to finish..."
+msgstr "正在取消，等待目前圖片處理完成後停止..."
+
+msgid "Completed: %d images"
+msgstr "處理完成，共 %d 張"
+
+msgid "Completed: %d succeeded, %d failed"
+msgstr "處理完成: 成功 %d 張，失敗 %d 張"
+
+msgid "Completed: %d succeeded, %d failed."
+msgstr "處理完成：成功 %d 張，失敗 %d 張。"
+
+msgid "Compress images"
+msgstr "壓縮圖片"
+
+msgid "Compressing image: %s"
+msgstr "正在壓縮圖片: %s"
+
+msgid "Compression target size must be greater than 0"
+msgstr "壓縮圖片大小必須大於 0"
+
+msgid "Convert format"
+msgstr "轉換圖片格式"
+
+msgid "Converting image format: %s"
+msgstr "正在轉換圖片格式: %s"
+
+msgid "Could not reach the target size; kept the current result"
+msgstr "無法壓縮到目標大小，已保留目前結果"
+
+msgid "Custom filename prefix"
+msgstr "自訂檔名前綴"
+
+msgid "Custom prefix"
+msgstr "自訂前綴"
+
+msgid "Drag to set thread count (1-128)"
+msgstr "拖動設定執行緒數（1-128）"
+
+msgid "Duplicate filename"
+msgstr "檔名重複"
+
+msgid "Duplicate output name; renamed to: %s"
+msgstr "輸出檔名重複，已重新命名為: %s"
+
+msgid "English"
+msgstr "English"
+
+msgid "Enter a prefix (duplicates become prefix_1.png, prefix_2.png, ...):"
+msgstr "輸入前綴（重複檔案會產生 前綴_1.png、前綴_2.png 等）："
+
+msgid "Enter thread count manually (1-128)"
+msgstr "手動輸入執行緒數（1-128）"
+
+msgid "Failed and skipped: %s (%s)"
+msgstr "處理失敗，已略過: %s（%s）"
+
+msgid "Failed files were skipped; see the console for details."
+msgstr "失敗的檔案已略過，詳情見主控台。"
+
+msgid "Failed to open output folder: %s"
+msgstr "開啟輸出資料夾失敗: %s"
+
+msgid "Flatten onto white"
+msgstr "合成白色背景"
+
+msgid "GitHub Link"
+msgstr "GitHub 連結"
+
+msgid "Help"
+msgstr "說明"
+
+msgid "Image \"%s\" contains transparency, but JPEG does not support it.\nChoose how to handle it (applies to the rest of this batch):"
+msgstr "圖片「%s」包含透明區域，但 JPEG 格式不支援透明通道。\n請選擇處理方式（本批次後續透明圖片沿用此選擇）："
+
+msgid "Image Toolbox"
+msgstr "圖片工具箱"
+
+msgid "Information"
+msgstr "資訊"
+
+msgid "Input folder"
+msgstr "輸入資料夾"
+
+msgid "Input folder does not exist. Please choose again"
+msgstr "輸入資料夾不存在，請重新選擇"
+
+msgid "Language"
+msgstr "語言"
+
+msgid "Load subfolders"
+msgstr "遞迴載入"
+
+msgid "Loading images..."
+msgstr "正在載入圖片..."
+
+msgid "No images found"
+msgstr "沒有找到圖片"
+
+msgid "No processable images found"
+msgstr "沒有找到可處理的圖片"
+
+msgid "Open output folder"
+msgstr "在檔案總管中開啟資料夾"
+
+msgid "Output folder"
+msgstr "輸出資料夾"
+
+msgid "Output folder does not exist"
+msgstr "輸出資料夾不存在"
+
+msgid "Output folder does not exist. Please choose again"
+msgstr "輸出資料夾不存在，請重新選擇"
+
+msgid "Overwrite"
+msgstr "覆蓋檔案"
+
+msgid "Overwrote output file: %s"
+msgstr "輸出檔案已覆蓋: %s"
+
+msgid "Pause"
+msgstr "暫停"
+
+msgid "Paused. Click \"Resume\" to continue."
+msgstr "已暫停，點擊「繼續」恢復處理"
+
+msgid "Please select an input folder"
+msgstr "請選擇輸入資料夾"
+
+msgid "Please select an output folder"
+msgstr "請選擇輸出資料夾"
+
+msgid "Processing cancelled"
+msgstr "處理已取消"
+
+msgid "Processing error: %s"
+msgstr "處理出錯: %s"
+
+msgid "Processing failed: %s"
+msgstr "處理失敗: %s"
+
+msgid "Processing stopped"
+msgstr "處理已中止"
+
+msgid "Processing..."
+msgstr "正在處理..."
+
+msgid "Progress"
+msgstr "總進度"
+
+msgid "Rename images"
+msgstr "重新命名圖片"
+
+msgid "Renaming image: %s"
+msgstr "正在重新命名圖片: %s"
+
+msgid "Resume"
+msgstr "繼續"
+
+msgid "Resuming"
+msgstr "繼續處理"
+
+msgid "Select at least one action"
+msgstr "至少選擇一種處理方式"
+
+msgid "Select folder"
+msgstr "選擇資料夾"
+
+msgid "Simplified Chinese"
+msgstr "簡體中文"
+
+msgid "Skip this image"
+msgstr "略過這張圖片"
+
+msgid "Skipped transparent image (target format does not support transparency): %s"
+msgstr "已略過透明圖片（目標格式不支援透明通道）: %s"
+
+msgid "Start"
+msgstr "開始"
+
+msgid "The name \"%s\" duplicates a file already produced in this batch"
+msgstr "與本批次已輸出的檔案「%s」重名"
+
+msgid "This software is free. If you paid for it through another channel, please request a refund and report the seller."
+msgstr "此軟體為免費軟體，若您透過其他管道付費取得，請立即退款並向相關商家投訴"
+
+msgid "Threads"
+msgstr "執行緒數"
+
+msgid "Traditional Chinese"
+msgstr "繁體中文"
+
+msgid "Transparent image"
+msgstr "透明圖片"
+
+msgid "Unable to recognize image format"
+msgstr "無法辨識圖片格式"
+
+msgid "Unknown"
+msgstr "不明"
+
+msgid "Unknown target image format"
+msgstr "未知的目標圖片格式"
+
+msgid "Version"
+msgstr "版本"
+
+msgid "Warning"
+msgstr "警告"
+
+msgid "auto-increment number"
+msgstr "自動遞增序號"

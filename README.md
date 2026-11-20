@@ -1,47 +1,52 @@
 # Image Toolbox
 
-基于 Python + PySide6 的图片批量处理工具，支持图形界面和命令行两种模式。
+[English](README.md) | [简体中文](README.zh_CN.md) | [繁體中文](README.zh_TW.md)
 
-## 运行
+Batch image processing tool built with Python + PySide6, with both a graphical interface and a command-line mode.
 
-运行打包后的程序 `dist/main/main.exe`：
+## Run
 
-```powershell
-.\dist\main\main.exe
-```
-
-双击启动图形界面；带参数运行命令行模式（无桌面环境同样可用）：
+Run the packaged program `dist/image-toolbox.exe`:
 
 ```powershell
-.\dist\main\main.exe --help
-.\dist\main\main.exe -i .\photos -o .\out --format jpeg --recursive --threads 8
-.\dist\main\main.exe -i .\photos -o .\out --compress 100
+.\dist\image-toolbox.exe
 ```
 
-查看全部参数：`--help`（也支持 `-h`）；`--version` 查看版本。
+Double-click to start the graphical interface; pass arguments to use the command-line mode (English only, also works on headless systems):
 
-命令行退出码：`0` 成功，`1` 参数或运行错误，`2` 有图片失败/跳过，`3` 被取消。
+```powershell
+.\dist\image-toolbox.exe --help
+.\dist\image-toolbox.exe -i .\photos -o .\out --format jpeg --recursive --threads 8
+.\dist\image-toolbox.exe -i .\photos -o .\out --compress 100
+```
 
-## 功能
+View all options (English): `--help` (or `-h`); `--version` for the version.
 
-- 格式转换：JPEG / PNG / WebP
-- 压缩：压缩到目标 KB，必要时自动裁剪
-- 重命名：UUID / MD5 / 自增序号
-- 多线程：1-128 个线程
-- 暂停 / 取消（正在处理的图片完成后停止）
-- 透明图片转 JPEG、输出重名时弹窗询问处理方式
+CLI exit codes: `0` success, `1` argument/runtime error, `2` some images failed or were skipped, `3` cancelled.
 
-## 编译
+## Features
+
+- Convert: JPEG / PNG / WebP
+- Compress: to a target KB, cropping when necessary
+- Rename: UUID / MD5 / auto-increment number
+- Multithreading: 1-128 threads
+- Pause / cancel (in-flight images finish first)
+- Prompts for transparent images to JPEG and duplicate output names
+- The GUI detects the system language at startup (Simplified Chinese / Traditional Chinese; other languages fall back to English) and can be switched in the Language menu; the CLI is English-only
+
+## Build
 
 ```powershell
 pip install pillow pyside6 pyinstaller
-pyinstaller main.py
+pyinstaller image-toolbox.spec
 ```
 
-生成的可执行文件在 `dist/main/`。
+The executable is `dist/image-toolbox.exe`. `image-toolbox.spec` configures one-file mode, console mode, the icon, `assets`, and the translation files.
 
-## 注意
+Translation files use English msgids and live in `app/locales/zh_CN` and `app/locales/zh_TW`. After editing them, run `python tools/build_catalogs.py` to regenerate the `.mo` files before packaging.
 
-- 输出文件与已有文件重名时会询问处理方式，建议输出到空文件夹。
-- 压缩率有限，目标过小时会裁剪图片。
-- 请确保您有权修改原始文件，尊重版权。
+## Notes
+
+- When an output file already exists, the app asks how to handle it; using an empty output folder is recommended.
+- Compression has limits; a very small target may crop the image.
+- Make sure you have permission to modify the original files and respect copyright.

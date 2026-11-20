@@ -16,6 +16,7 @@ from PIL import Image, ImageOps
 
 from app.enums.image_format import ImageFormat
 from app.enums.rename_image_method import RenameImageMethod
+from app.i18n import tr
 from app.modules.load_image_path_from_folder import load_image_path_from_folder
 
 
@@ -138,7 +139,7 @@ class ImageProcessor:
             return pause_callback() if pause_callback is not None else True
 
         def is_cancelled():
-            # 取消只在图片边界检查：正在处理的图片会先完成，符合“当前图片处理完再取消”的语义
+            # 取消是整体取消：只在图片边界停止调度，正在处理的图片会先完成
             return cancel_callback is not None and cancel_callback()
 
         context['ask'] = ask
@@ -170,7 +171,7 @@ class ImageProcessor:
                 return False
             return check_point()
 
-        log('正在载入图片...')
+        log(tr('Loading images...'))
         self.image_path = load_image_path_from_folder(
             self.input_folder,
             self.kwargs.get('recursive_load', False),
@@ -179,15 +180,15 @@ class ImageProcessor:
 
         if self.image_path is None:
             if is_cancelled():
-                log('处理已取消')
+                log(tr('Processing cancelled'))
                 result['cancelled'] = True
             else:
-                log('处理已中止')
+                log(tr('Processing stopped'))
                 result['aborted'] = True
             return result
 
         if not self.image_path:
-            log('没有找到图片')
+            log(tr('No images found'))
             return result
 
         total_count = len(self.image_path)
@@ -209,13 +210,9 @@ class ImageProcessor:
                 result['failed'].append(record_data.get('source'))
             elif status == 'aborted':
                 result['aborted'] = True
-            elif status == 'cancelled':
-                result['cancelled'] = True
 
-        def report_progress(record_data):
-            # 因取消而未处理的图片不推进进度
-            if record_data is not None and record_data.get('status') == 'cancelled':
-                return
+        def report_progress():
+            # 只统计实际处理过的图片；整体取消后未开始的图片不会产生记录
             completed[0] += 1
             if progress_callback is not None:
                 progress_callback(completed[0])
@@ -231,8 +228,12 @@ class ImageProcessor:
                     break
 
                 record = self._process_image(image_path_item, context)
+                if record is None:
+                    # 整体取消：这张图片还没开始处理，不产生处理记录
+                    result['cancelled'] = True
+                    break
                 merge_record(record)
-                report_progress(record)
+                report_progress()
 
                 if record.get('status') == 'aborted':
                     break
@@ -244,6 +245,7 @@ class ImageProcessor:
                 def submit_more():
                     while len(pending) < worker_count * 2:
                         if is_cancelled():
+                            result['cancelled'] = True
                             return
                         try:
                             path = next(path_iterator)
@@ -267,8 +269,13 @@ class ImageProcessor:
                                 'error': str(error),
                             }
 
+                        if record is None:
+                            # 整体取消：这张图片还没开始处理，不产生处理记录
+                            result['cancelled'] = True
+                            continue
+
                         merge_record(record)
-                        report_progress(record)
+                        report_progress()
                         if record.get('status') == 'aborted':
                             aborted = True
 
@@ -282,11 +289,11 @@ class ImageProcessor:
                     submit_more()
 
         if result['cancelled']:
-            log('处理已取消: 成功 %d 张，失败 %d 张' % (result['success'], len(result['failed'])))
+            log(tr('Cancelled: %d succeeded, %d failed') % (result['success'], len(result['failed'])))
         else:
-            log('处理完成: 成功 %d 张，失败 %d 张' % (result['success'], len(result['failed'])))
+            log(tr('Completed: %d succeeded, %d failed') % (result['success'], len(result['failed'])))
         if result['skipped'] > 0:
-            log('其中因透明通道跳过 %d 张' % result['skipped'])
+            log(tr('%d skipped due to transparency') % result['skipped'])
         return result
 
     def _get_worker_count(self):
@@ -314,19 +321,19 @@ class ImageProcessor:
 
         image = None
 
-        # 取消只影响尚未开始处理的图片
+        # 整体取消后，不再开始处理排队中的图片；返回 None 表示没有产生处理记录
         if context['is_cancelled']():
             self._close_image(image)
-            return {'source': source_name, 'status': 'cancelled'}
+            return None
 
         if not check_point():
             self._close_image(image)
             return {'source': source_name, 'status': 'aborted'}
 
-        # 暂停中收到取消请求：恢复后不再处理这张图片
+        # 暂停中收到整体取消请求：恢复后不再开始处理这张图片
         if context['is_cancelled']():
             self._close_image(image)
-            return {'source': source_name, 'status': 'cancelled'}
+            return None
 
         # noinspection PyBroadException
         try:
@@ -335,7 +342,7 @@ class ImageProcessor:
 
             original_image_format = image.format
             if not original_image_format:
-                raise ValueError('无法识别图片格式')
+                raise ValueError(tr('Unable to recognize image format'))
 
             # MPO 本质上是 JPEG 多图容器，按 JPEG 处理
             if original_image_format.upper() == 'MPO':
@@ -347,12 +354,12 @@ class ImageProcessor:
             output_format_name = original_image_format
 
             if self.kwargs.get('is_selected_convert_image_format', False) is True:
-                log('正在转换图片格式: ' + source_name)
+                log(tr('Converting image format: %s') % source_name)
                 converted_format = _find_field_by_value(
                     ImageFormat, self.kwargs.get('image_format', ImageFormat.JPEG.value)
                 )
                 if converted_format is None:
-                    raise ValueError('未知的目标图片格式')
+                    raise ValueError(tr('Unknown target image format'))
                 output_format_name = converted_format
 
             alpha_to_white = True
@@ -374,7 +381,7 @@ class ImageProcessor:
                             return {'source': source_name, 'status': 'aborted'}
 
                 if alpha_policy == 'skip':
-                    log('已跳过透明图片（目标格式不支持透明通道）: ' + source_name)
+                    log(tr('Skipped transparent image (target format does not support transparency): %s') % source_name)
                     self._close_image(image)
                     return {'source': source_name, 'status': 'skipped'}
 
@@ -387,7 +394,7 @@ class ImageProcessor:
             image = _convert_mode_for_format(image, output_format_name, alpha_to_white)
 
             if self.kwargs.get('is_selected_compress_image', False) is True:
-                log('正在压缩图片: ' + source_name)
+                log(tr('Compressing image: %s') % source_name)
                 target_size = self.kwargs.get('image_target_size')
                 if target_size is not None and target_size > 0:
                     compressed_image = self._compress_image(
@@ -425,7 +432,7 @@ class ImageProcessor:
             self._close_image(image)
             return {'source': source_name, 'status': 'aborted'}
         except Exception as error:
-            log('处理失败，已跳过: %s（%s）' % (source_name, error))
+            log(tr('Failed and skipped: %s (%s)') % (source_name, error))
             self._close_image(image)
             return {'source': source_name, 'status': 'failed', 'error': str(error)}
 
@@ -435,7 +442,7 @@ class ImageProcessor:
         used_output_names = context['used_output_names']
 
         if self.kwargs.get('is_selected_rename_image', False) is True:
-            log('正在重命名图片: ' + source_name)
+            log(tr('Renaming image: %s') % source_name)
             rename_image_method = self.kwargs.get('rename_image_method', RenameImageMethod.UUID.value)
             if rename_image_method == RenameImageMethod.AUTO_INCREMENT_NUMBER.value:
                 index = next(context['rename_counter'])
@@ -479,13 +486,13 @@ class ImageProcessor:
             if duplicate_policy == 'overwrite':
                 final_name = desired_name
                 needs_overwrite_lock = in_batch
-                log('输出文件已覆盖: ' + final_name)
+                log(tr('Overwrote output file: %s') % final_name)
             elif duplicate_policy == 'custom':
                 final_name = self._custom_unique_name(desired_name, context['duplicate_prefix'], used_output_names)
-                log('输出文件名重复，已重命名为: ' + final_name)
+                log(tr('Duplicate output name; renamed to: %s') % final_name)
             else:
                 final_name = self._suggest_unique_name(desired_name, used_output_names)
-                log('输出文件名重复，已重命名为: ' + final_name)
+                log(tr('Duplicate output name; renamed to: %s') % final_name)
 
         used_output_names.add(final_name.lower())
         return final_name, needs_overwrite_lock
@@ -533,7 +540,7 @@ class ImageProcessor:
             width, height = image.size
             new_width, new_height = int(width * 0.9), int(height * 0.9)
             if new_width < 1 or new_height < 1:
-                log('无法压缩到目标大小，已保留当前结果')
+                log(tr('Could not reach the target size; kept the current result'))
                 break
 
             image = ImageOps.fit(image, (new_width, new_height), Image.Resampling.LANCZOS)

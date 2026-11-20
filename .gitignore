@@ -1,5 +1,6 @@
 .idea
 *.spec
+!image-toolbox.spec
 build
 dist
 test

@@ -8,9 +8,11 @@ from PySide6.QtWidgets import (
     QApplication,
     QInputDialog,
     QMainWindow,
+    QMenu,
     QMessageBox,
 )
 
+from app.i18n import LANGUAGES, detect_system_language, get_language, set_language, tr
 from app.modules.processing_thread import ProcessingThread
 from app.modules.select_folder import select_folder
 from image_processor import ImageProcessor
@@ -21,6 +23,9 @@ from version import VERSION
 class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
     def __init__(self):
         super().__init__()
+
+        # 启动时按系统语言选择界面语言；命令行模式不受影响
+        set_language(detect_system_language())
 
         # 窗口状态（放在实例上，避免多个窗口共享类属性）
         self.input_folder = None
@@ -98,6 +103,68 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
         # 关于按钮
         self.actionAbout.triggered.connect(self.about_button_clicked)
 
+        # 语言菜单：只切换界面文案，不改变处理逻辑
+        self._build_language_menu()
+        self._apply_language()
+
+    def _build_language_menu(self):
+        self.languageMenu = QMenu(tr('Language'), self.menuBar)
+        self.menuBar.insertMenu(self.menu.menuAction(), self.languageMenu)
+        self._language_actions = {}
+        for code in LANGUAGES:
+            action = self.languageMenu.addAction('')
+            action.setCheckable(True)
+            action.triggered.connect(lambda checked=False, code=code: self.change_language(code))
+            self._language_actions[code] = action
+
+    def change_language(self, language):
+        set_language(language)
+        self._apply_language()
+
+    def _apply_language(self):
+        self.setWindowTitle(tr('Image Toolbox'))
+
+        self.inputFolderlabel.setText(tr('Input folder'))
+        self.inputFolderPushButton.setText(tr('Select folder'))
+        self.recursiveloadingCheckBox.setText(tr('Load subfolders'))
+        self.outputFolderlabel.setText(tr('Output folder'))
+        self.outputFolderPushButton.setText(tr('Select folder'))
+        self.openOutputFolderPushButton.setText(tr('Open output folder'))
+
+        self.convertImageFormatCheckBox.setText(tr('Convert format'))
+        self.compressImageCheckBox.setText(tr('Compress images'))
+        self.renameImageCheckBox.setText(tr('Rename images'))
+        self.renameImageComboBox.setItemText(2, tr('auto-increment number'))
+        self.threadCountLabel.setText(tr('Threads'))
+        self.threadCountSlider.setToolTip(tr('Drag to set thread count (1-128)'))
+        self.threadCountSpinBox.setToolTip(tr('Enter thread count manually (1-128)'))
+        self.totalProgresslabel.setText(tr('Progress'))
+
+        if self.startProcessingPushButton.isEnabled():
+            self.startProcessingPushButton.setText(tr('Start'))
+        else:
+            self.startProcessingPushButton.setText(tr('Processing...'))
+
+        paused = self.main_processing_thread is not None and self.main_processing_thread.is_paused()
+        if self.pauseProcessingPushButton.isEnabled():
+            self.pauseProcessingPushButton.setText(tr('Resume') if paused else tr('Pause'))
+        else:
+            self.pauseProcessingPushButton.setText(tr('Pause'))
+
+        cancelling = (
+            self.main_processing_thread is not None
+            and self.main_processing_thread.is_cancel_requested()
+            and not self.cancelProcessingPushButton.isEnabled()
+        )
+        self.cancelProcessingPushButton.setText(tr('Cancelling...') if cancelling else tr('Cancel'))
+
+        self.menu.setTitle(tr('Help'))
+        self.actionAbout.setText(tr('About'))
+        self.languageMenu.setTitle(tr('Language'))
+        for code, action in self._language_actions.items():
+            action.setText(tr(LANGUAGES[code]))
+            action.setChecked(code == get_language())
+
     def input_button_clicked(self):
         self.input_folder = select_folder(self)
         if self.input_folder is not None:
@@ -116,17 +183,17 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
 
     def open_output_folder_push_button_clicked(self):
         if self.output_folder is None or self.output_folder == '':
-            QMessageBox.warning(self, 'Warning', '请选择输出文件夹')
+            QMessageBox.warning(self, tr('Warning'), tr('Please select an output folder'))
             return
 
         if not os.path.isdir(self.output_folder):
-            QMessageBox.warning(self, 'Warning', '输出文件夹不存在')
+            QMessageBox.warning(self, tr('Warning'), tr('Output folder does not exist'))
             return
 
         try:
             os.startfile(self.output_folder)
         except OSError as error:
-            QMessageBox.warning(self, 'Warning', '打开输出文件夹失败: %s' % error)
+            QMessageBox.warning(self, tr('Warning'), tr('Failed to open output folder: %s') % error)
 
     def convert_image_format_check_box_clicked(self):
         if self.convertImageFormatCheckBox.isChecked() is True:
@@ -176,27 +243,27 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
 
     def start_processing(self):
         if self.input_folder is None or self.input_folder == '':
-            QMessageBox.warning(self, 'Warning', '请选择输入文件夹')
+            QMessageBox.warning(self, tr('Warning'), tr('Please select an input folder'))
             return
 
         if not os.path.isdir(self.input_folder):
-            QMessageBox.warning(self, 'Warning', '输入文件夹不存在，请重新选择')
+            QMessageBox.warning(self, tr('Warning'), tr('Input folder does not exist. Please choose again'))
             return
 
         if self.output_folder is None or self.output_folder == '':
-            QMessageBox.warning(self, 'Warning', '请选择输出文件夹')
+            QMessageBox.warning(self, tr('Warning'), tr('Please select an output folder'))
             return
 
         if not os.path.isdir(self.output_folder):
-            QMessageBox.warning(self, 'Warning', '输出文件夹不存在，请重新选择')
+            QMessageBox.warning(self, tr('Warning'), tr('Output folder does not exist. Please choose again'))
             return
 
         if self.image_format is None and self.image_target_size is None and self.rename_image_method is None:
-            QMessageBox.warning(self, 'Warning', '至少选择一个处理方式')
+            QMessageBox.warning(self, tr('Warning'), tr('Select at least one action'))
             return
 
         if self.is_selected_compress_image is True and (self.image_target_size is None or self.image_target_size <= 0):
-            QMessageBox.warning(self, 'Warning', '压缩图片大小必须大于 0')
+            QMessageBox.warning(self, tr('Warning'), tr('Compression target size must be greater than 0'))
             return
 
         self.last_result = None
@@ -206,7 +273,7 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
         self.duplicate_prefix = None
 
         self.startProcessingPushButton.setEnabled(False)
-        self.startProcessingPushButton.setText('正在处理...')
+        self.startProcessingPushButton.setText(tr('Processing...'))
         self._set_thread_controls_enabled(False)
 
         recursive = False
@@ -239,9 +306,9 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
         self.main_processing_thread.start()
 
         self.pauseProcessingPushButton.setEnabled(True)
-        self.pauseProcessingPushButton.setText('暂停')
+        self.pauseProcessingPushButton.setText(tr('Pause'))
         self.cancelProcessingPushButton.setEnabled(True)
-        self.cancelProcessingPushButton.setText('取消')
+        self.cancelProcessingPushButton.setText(tr('Cancel'))
 
     def _set_thread_controls_enabled(self, enabled):
         self.threadCountSlider.setEnabled(enabled)
@@ -253,12 +320,12 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
 
         if self.main_processing_thread.is_paused():
             self.main_processing_thread.resume()
-            self.pauseProcessingPushButton.setText('暂停')
-            self.consoleTextEdit.append('继续处理')
+            self.pauseProcessingPushButton.setText(tr('Pause'))
+            self.consoleTextEdit.append(tr('Resuming'))
         else:
             self.main_processing_thread.pause()
-            self.pauseProcessingPushButton.setText('继续')
-            self.consoleTextEdit.append('已暂停，点击“继续”恢复处理')
+            self.pauseProcessingPushButton.setText(tr('Resume'))
+            self.consoleTextEdit.append(tr('Paused. Click "Resume" to continue.'))
 
     def cancel_processing(self):
         if self.main_processing_thread is None or not self.main_processing_thread.isRunning():
@@ -269,11 +336,11 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
 
         self.main_processing_thread.request_cancel()
         self.cancelProcessingPushButton.setEnabled(False)
-        self.cancelProcessingPushButton.setText('正在取消...')
+        self.cancelProcessingPushButton.setText(tr('Cancelling...'))
         # 取消时需要让正在处理的图片完成，因此暂停状态会被自动恢复
         self.pauseProcessingPushButton.setEnabled(False)
-        self.pauseProcessingPushButton.setText('暂停')
-        self.consoleTextEdit.append('正在取消，等待当前图片处理完成后停止...')
+        self.pauseProcessingPushButton.setText(tr('Pause'))
+        self.consoleTextEdit.append(tr('Cancelling; waiting for the current image to finish...'))
 
     def processing_result(self, result):
         self.last_result = result
@@ -321,15 +388,18 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
 
     def ask_alpha_handling(self, request):
         box = QMessageBox(self)
-        box.setWindowTitle('透明图片')
+        box.setWindowTitle(tr('Transparent image'))
         box.setIcon(QMessageBox.Icon.Question)
         box.setText(
-            '图片「%s」包含透明区域，但 JPEG 格式不支持透明通道。\n'
-            '请选择处理方式（本批次后续透明图片沿用此选择）：' % request.get('source_name', '')
+            tr(
+                'Image "%s" contains transparency, but JPEG does not support it.\n'
+                'Choose how to handle it (applies to the rest of this batch):'
+            )
+            % request.get('source_name', '')
         )
-        white_button = box.addButton('合成白色背景', QMessageBox.ButtonRole.AcceptRole)
-        skip_button = box.addButton('跳过该图片', QMessageBox.ButtonRole.DestructiveRole)
-        box.addButton('取消处理', QMessageBox.ButtonRole.RejectRole)
+        white_button = box.addButton(tr('Flatten onto white'), QMessageBox.ButtonRole.AcceptRole)
+        skip_button = box.addButton(tr('Skip this image'), QMessageBox.ButtonRole.DestructiveRole)
+        box.addButton(tr('Cancel processing'), QMessageBox.ButtonRole.RejectRole)
         box.setDefaultButton(white_button)
         box.exec()
 
@@ -343,18 +413,18 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
     def ask_duplicate_handling(self, request):
         desired_name = request.get('desired_name', '')
         if request.get('in_batch') is True:
-            reason = '与本批次已输出的文件「%s」重名' % desired_name
+            reason = tr('The name "%s" duplicates a file already produced in this batch') % desired_name
         else:
-            reason = '输出文件夹中已存在文件「%s」' % desired_name
+            reason = tr('A file named "%s" already exists in the output folder') % desired_name
 
         box = QMessageBox(self)
-        box.setWindowTitle('文件名重复')
+        box.setWindowTitle(tr('Duplicate filename'))
         box.setIcon(QMessageBox.Icon.Question)
-        box.setText(reason + '。\n请选择处理方式（本批次后续重名文件沿用此选择）：')
-        overwrite_button = box.addButton('覆盖文件', QMessageBox.ButtonRole.DestructiveRole)
-        rename_button = box.addButton('自动加序号', QMessageBox.ButtonRole.AcceptRole)
-        custom_button = box.addButton('自定义前缀', QMessageBox.ButtonRole.ActionRole)
-        box.addButton('取消处理', QMessageBox.ButtonRole.RejectRole)
+        box.setText(reason + tr('.\nChoose how to handle it (applies to the rest of this batch):'))
+        overwrite_button = box.addButton(tr('Overwrite'), QMessageBox.ButtonRole.DestructiveRole)
+        rename_button = box.addButton(tr('Auto-rename'), QMessageBox.ButtonRole.AcceptRole)
+        custom_button = box.addButton(tr('Custom prefix'), QMessageBox.ButtonRole.ActionRole)
+        box.addButton(tr('Cancel processing'), QMessageBox.ButtonRole.RejectRole)
         box.setDefaultButton(rename_button)
         box.exec()
 
@@ -365,7 +435,10 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
             return 'rename'
         if clicked is custom_button:
             prefix, accepted = QInputDialog.getText(
-                self, '自定义文件名前缀', '输入前缀（重复文件会生成 前缀_1.png、前缀_2.png 等）：', text='img'
+                self,
+                tr('Custom filename prefix'),
+                tr('Enter a prefix (duplicates become prefix_1.png, prefix_2.png, ...):'),
+                text='img',
             )
             if accepted and prefix.strip():
                 return {'action': 'custom', 'prefix': prefix.strip()}
@@ -374,11 +447,11 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
 
     def processing_finished(self):
         self.startProcessingPushButton.setEnabled(True)
-        self.startProcessingPushButton.setText('开始')
+        self.startProcessingPushButton.setText(tr('Start'))
         self.pauseProcessingPushButton.setEnabled(False)
-        self.pauseProcessingPushButton.setText('暂停')
+        self.pauseProcessingPushButton.setText(tr('Pause'))
         self.cancelProcessingPushButton.setEnabled(False)
-        self.cancelProcessingPushButton.setText('取消')
+        self.cancelProcessingPushButton.setText(tr('Cancel'))
         self._set_thread_controls_enabled(True)
 
         # 关闭窗口时线程被中止，不再弹出提示框
@@ -386,7 +459,7 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
             return
 
         if self.last_error is not None:
-            QMessageBox.warning(self, 'Warning', '处理失败: ' + self.last_error)
+            QMessageBox.warning(self, tr('Warning'), tr('Processing failed: %s') % self.last_error)
             return
 
         result = self.last_result or {}
@@ -396,26 +469,27 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
         skipped_count = result.get('skipped', 0)
 
         if result.get('cancelled') is True:
-            message = '处理已取消：成功 %d 张，失败 %d 张。' % (success_count, len(failed))
+            message = tr('Cancelled: %d succeeded, %d failed.') % (success_count, len(failed))
             if failed:
-                message += '\n失败的文件已跳过，详情见控制台。'
+                message += '\n' + tr('Failed files were skipped; see the console for details.')
             if skipped_count > 0:
-                message += '\n其中 %d 张因透明通道被跳过。' % skipped_count
+                message += '\n' + tr('%d image(s) skipped because of transparency.') % skipped_count
             QMessageBox.information(self, 'Information', message)
         elif result.get('aborted') is True:
-            QMessageBox.information(self, 'Information', '处理已中止')
+            QMessageBox.information(self, tr('Information'), tr('Processing stopped'))
         elif total_count == 0:
-            QMessageBox.information(self, 'Information', '没有找到可处理的图片')
+            QMessageBox.information(self, tr('Information'), tr('No processable images found'))
         elif failed:
-            message = '处理完成：成功 %d 张，失败 %d 张。\n失败的文件已跳过，详情见控制台。' % (
-                success_count,
-                len(failed),
+            message = (
+                tr('Completed: %d succeeded, %d failed.') % (success_count, len(failed))
+                + '\n'
+                + tr('Failed files were skipped; see the console for details.')
             )
             if skipped_count > 0:
-                message += '\n其中 %d 张因透明通道被跳过。' % skipped_count
-            QMessageBox.warning(self, 'Warning', message)
+                message += '\n' + tr('%d image(s) skipped because of transparency.') % skipped_count
+            QMessageBox.warning(self, tr('Warning'), message)
         else:
-            QMessageBox.information(self, 'Information', '处理完成，共 %d 张' % success_count)
+            QMessageBox.information(self, tr('Information'), tr('Completed: %d images') % success_count)
 
     def closeEvent(self, event):
         self.is_closing = True
@@ -427,17 +501,21 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
         super().closeEvent(event)
 
     def about_button_clicked(self):
+        free_software_text = tr(
+            'This software is free. If you paid for it through another channel, '
+            'please request a refund and report the seller.'
+        )
         QMessageBox.about(
             self,
-            'About',
+            tr('About'),
             '<div>'
             '<h1>IMAGE TOOlBOX</h1>'
-            f'<p>Version: {VERSION}</p>'
-            '<p>Author: 不明</p>'
-            '<p>GitHub Link: '
+            f'<p>{tr("Version")}: {VERSION}</p>'
+            f'<p>{tr("Author")}: {tr("Unknown")}</p>'
+            f'<p>{tr("GitHub Link")}: '
             '<a href="https://github.com/notmings/image-toolbox">https://github.com/notmings/image-toolbox</a>'
             '</p>'
-            '<p>此软件是免费软件，如果您通过其他渠道付费获取此软件，请立即退款并投诉相应商家</p>'
+            f'<p>{free_software_text}</p>'
             '</div>',
         )
 

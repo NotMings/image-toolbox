@@ -1,25 +1,23 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-"""图片工具箱命令行模式：在没有图形界面的环境中批量处理图片。
+"""Image Toolbox command line: batch convert, compress, and rename images.
 
-和图形界面共用同一个程序：不带参数启动时打开图形界面，带参数时进入命令行模式。
+The graphical interface and the command line share one program:
+- no arguments: start the GUI
+- with arguments: run in command-line mode (English only)
 
-用法示例：
-    python main.py -i ./photos -o ./out --format jpeg --recursive --threads 8
-    python main.py -i ./photos -o ./out --compress 100
-    python main.py -i ./photos -o ./out --rename number
-
-命令行模式只依赖 Pillow，不需要安装 PySide6。
+Command-line mode depends only on Pillow; PySide6 is not required.
 """
 
 import argparse
 import os
+import re
 import signal
 import sys
 import threading
 
 from app.enums.image_format import ImageFormat
 from app.enums.rename_image_method import RenameImageMethod
+from app.i18n import set_language
 from image_processor import ImageProcessor
 from version import VERSION
 
@@ -34,65 +32,92 @@ _RENAME_CHOICES = {
     'number': RenameImageMethod.AUTO_INCREMENT_NUMBER.value,
 }
 
+# Routine progress lines hidden by --quiet.
+_QUIET_PATTERNS = tuple(
+    re.compile(pattern)
+    for pattern in (
+        r'^Loading images\.\.\.',
+        r'^Converting image format: .*',
+        r'^Compressing image: .*',
+        r'^Renaming image: .*',
+        r'^Completed: .*',
+        r'^Cancelled: .*',
+    )
+)
+
 
 class _ArgumentParser(argparse.ArgumentParser):
-    """参数错误时返回退出码 1（argparse 默认是 2，会和“部分失败”的退出码冲突）。"""
+    """Argument errors exit with code 1 (argparse defaults to 2, which means partial failure)."""
 
     def error(self, message):
         self.print_usage(sys.stderr)
-        self.exit(1, '%s: 错误: %s\n' % (self.prog, message))
+        self.exit(1, '%s: error: %s\n' % (self.prog, message))
 
 
 def build_parser():
     parser = _ArgumentParser(
         prog='image-toolbox',
-        description='图片工具箱命令行模式：批量转换格式、压缩、重命名图片。',
-        epilog='退出码：0=全部成功，1=参数/运行错误，2=有图片失败或被跳过，3=处理被取消。',
+        description='Image Toolbox command line: batch convert, compress, and rename images.',
+        epilog='Exit codes: 0=success, 1=argument/runtime error, 2=some images failed or were skipped, 3=cancelled.',
     )
-    parser.add_argument('-i', '--input', required=True, metavar='DIR', help='输入文件夹')
-    parser.add_argument('-o', '--output', required=True, metavar='DIR', help='输出文件夹（不存在会自动创建）')
-    parser.add_argument('-f', '--format', choices=sorted(_FORMAT_CHOICES), help='转换图片格式：jpeg / png / webp')
-    parser.add_argument('-c', '--compress', type=float, metavar='KB', help='压缩图片到接近指定大小（KB），必须大于 0')
+    parser.add_argument('-i', '--input', required=True, metavar='DIR', help='input folder')
     parser.add_argument(
-        '-r', '--rename', choices=sorted(_RENAME_CHOICES), help='重命名方式：uuid / md5 / number（自动递增序号）'
+        '-o', '--output', required=True, metavar='DIR', help='output folder (created if it does not exist)'
     )
-    parser.add_argument('-R', '--recursive', action='store_true', help='递归处理子文件夹')
-    parser.add_argument('-t', '--threads', type=int, default=4, metavar='N', help='处理线程数（1-128，默认 4）')
+    parser.add_argument('-f', '--format', choices=sorted(_FORMAT_CHOICES), help='convert to jpeg / png / webp')
+    parser.add_argument(
+        '-c',
+        '--compress',
+        type=float,
+        metavar='KB',
+        help='compress images to approximately the given size in KB (must be > 0)',
+    )
+    parser.add_argument(
+        '-r',
+        '--rename',
+        choices=sorted(_RENAME_CHOICES),
+        help='rename method: uuid / md5 / number (auto-increment)',
+    )
+    parser.add_argument('-R', '--recursive', action='store_true', help='process subfolders recursively')
+    parser.add_argument('-t', '--threads', type=int, default=4, metavar='N', help='worker threads (1-128, default 4)')
     parser.add_argument(
         '--alpha',
         choices=('white', 'black', 'skip', 'cancel'),
         default='white',
-        help='透明图片转 JPEG 时的处理方式：white=合成白底（默认）/ black=合成黑底 / skip=跳过 / cancel=遇到时取消处理',
+        help='transparent images to JPEG: white=flatten onto white (default) / black=flatten onto black / '
+        'skip=skip / cancel=cancel on first occurrence',
     )
     parser.add_argument(
         '--duplicate',
         choices=('rename', 'overwrite', 'custom', 'cancel'),
         default='rename',
-        help='输出文件重名处理方式：rename=自动加序号（默认）/ overwrite=覆盖 / '
-        'custom=自定义前缀 / cancel=遇到时取消处理',
+        help='duplicate output names: rename=auto-rename (default) / overwrite=overwrite / '
+        'custom=custom prefix / cancel=cancel on first occurrence',
     )
     parser.add_argument(
-        '--duplicate-prefix', metavar='PREFIX', help='--duplicate custom 时使用的文件名前缀，例如 pic -> pic_1.png'
+        '--duplicate-prefix',
+        metavar='PREFIX',
+        help='filename prefix for --duplicate custom, e.g. pic -> pic_1.png',
     )
-    parser.add_argument('-q', '--quiet', action='store_true', help='只输出错误和最终结果')
-    parser.add_argument('--version', action='version', version='图片工具箱 %s' % VERSION)
+    parser.add_argument('-q', '--quiet', action='store_true', help='only output errors and the final result')
+    parser.add_argument('--version', action='version', version='Image Toolbox %s' % VERSION)
     return parser
 
 
 def _prepare_directories(args):
     if not os.path.isdir(args.input):
-        print('错误：输入文件夹不存在或不是文件夹: %s' % args.input, file=sys.stderr)
+        print('Error: input folder does not exist or is not a folder: %s' % args.input, file=sys.stderr)
         return False
 
     if os.path.exists(args.output) and not os.path.isdir(args.output):
-        print('错误：输出路径已存在且不是文件夹: %s' % args.output, file=sys.stderr)
+        print('Error: output path exists and is not a folder: %s' % args.output, file=sys.stderr)
         return False
 
     if not os.path.exists(args.output):
         try:
             os.makedirs(args.output)
         except OSError as error:
-            print('错误：无法创建输出文件夹 %s（%s）' % (args.output, error), file=sys.stderr)
+            print('Error: cannot create output folder %s (%s)' % (args.output, error), file=sys.stderr)
             return False
 
     return True
@@ -103,18 +128,21 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     if args.format is None and args.compress is None and args.rename is None:
-        parser.error('至少指定一种处理方式：--format / --compress / --rename')
+        parser.error('specify at least one action: --format / --compress / --rename')
     if args.compress is not None and args.compress <= 0:
-        parser.error('--compress 必须大于 0')
+        parser.error('--compress must be greater than 0')
     if not 1 <= args.threads <= 128:
-        parser.error('--threads 必须在 1-128 之间')
+        parser.error('--threads must be between 1 and 128')
     if args.duplicate == 'custom' and not args.duplicate_prefix:
-        parser.error('--duplicate custom 需要同时指定 --duplicate-prefix')
+        parser.error('--duplicate custom requires --duplicate-prefix')
 
     if not _prepare_directories(args):
         return 1
 
-    # Ctrl+C 第一次按下时优雅取消：当前图片处理完成后停止
+    # Image processor logs follow the global GUI language; command line is always English.
+    set_language('en')
+
+    # First Ctrl+C requests a graceful cancel: finish the current image, then stop.
     interrupted = threading.Event()
     previous_handler = signal.getsignal(signal.SIGINT)
 
@@ -122,14 +150,12 @@ def main(argv=None):
         if interrupted.is_set():
             raise KeyboardInterrupt
         interrupted.set()
-        print('\n收到中断，正在取消（当前图片处理完成后停止）...', file=sys.stderr)
+        print('\nInterrupted; cancelling after the current image finishes...', file=sys.stderr)
 
     signal.signal(signal.SIGINT, handle_interrupt)
 
     def console(message):
-        if args.quiet and (
-            message.startswith('正在') or message.startswith('处理完成') or message.startswith('处理已取消')
-        ):
+        if args.quiet and any(pattern.match(message) for pattern in _QUIET_PATTERNS):
             return
         print(message, flush=True)
 
@@ -164,10 +190,10 @@ def main(argv=None):
             cancel_callback=interrupted.is_set,
         )
     except KeyboardInterrupt:
-        print('处理被强制中断。', file=sys.stderr)
+        print('Processing was interrupted.', file=sys.stderr)
         return 3
     except Exception as error:
-        print('处理失败: %s: %s' % (type(error).__name__, error), file=sys.stderr)
+        print('Processing failed: %s: %s' % (type(error).__name__, error), file=sys.stderr)
         return 1
     finally:
         signal.signal(signal.SIGINT, previous_handler)
@@ -178,23 +204,23 @@ def main(argv=None):
     skipped_count = result.get('skipped', 0)
 
     if result.get('cancelled') is True:
-        print('处理已取消：成功 %d 张，失败 %d 张。' % (success_count, len(failed)))
+        print('Cancelled: %d succeeded, %d failed.' % (success_count, len(failed)))
         return 3
 
     if result.get('aborted') is True:
-        print('处理已中止：成功 %d 张，失败 %d 张。' % (success_count, len(failed)))
+        print('Stopped: %d succeeded, %d failed.' % (success_count, len(failed)))
         return 3
 
     if total_count == 0:
-        print('没有找到可以处理的图片。', file=sys.stderr)
+        print('No processable images found.', file=sys.stderr)
         return 1
 
-    print('处理完成：成功 %d 张，失败 %d 张。' % (success_count, len(failed)))
+    print('Completed: %d succeeded, %d failed.' % (success_count, len(failed)))
     if skipped_count > 0:
-        print('其中 %d 张因透明通道被跳过。' % skipped_count)
+        print('%d image(s) skipped because of transparency.' % skipped_count)
 
     if failed:
-        print('未成功处理的文件：', file=sys.stderr)
+        print('Files not processed successfully:', file=sys.stderr)
         for name in failed:
             print('  - %s' % name, file=sys.stderr)
         return 2
