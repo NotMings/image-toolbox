@@ -184,6 +184,12 @@ class Ui_toolBoxMainWindow(object):
 
         self.optionVerticalLayout.addWidget(self.pauseProcessingPushButton)
 
+        self.cancelProcessingPushButton = QPushButton(self.centralwidget)
+        self.cancelProcessingPushButton.setObjectName(u"cancelProcessingPushButton")
+        self.cancelProcessingPushButton.setEnabled(False)
+
+        self.optionVerticalLayout.addWidget(self.cancelProcessingPushButton)
+
 
         self.formLayout.setLayout(2, QFormLayout.LabelRole, self.optionVerticalLayout)
 
@@ -259,6 +265,7 @@ class Ui_toolBoxMainWindow(object):
         self.threadCountSpinBox.setToolTip(QCoreApplication.translate("toolBoxMainWindow", u"\u624b\u52a8\u8f93\u5165\u7ebf\u7a0b\u6570\uff081-128\uff09", None))
         self.startProcessingPushButton.setText(QCoreApplication.translate("toolBoxMainWindow", u"\u5f00\u59cb", None))
         self.pauseProcessingPushButton.setText(QCoreApplication.translate("toolBoxMainWindow", u"\u6682\u505c", None))
+        self.cancelProcessingPushButton.setText(QCoreApplication.translate("toolBoxMainWindow", u"\u53d6\u6d88", None))
         self.totalProgresslabel.setText(QCoreApplication.translate("toolBoxMainWindow", u"\u603b\u8fdb\u5ea6", None))
         self.menu.setTitle(QCoreApplication.translate("toolBoxMainWindow", u"\u5e2e\u52a9", None))
     # retranslateUi

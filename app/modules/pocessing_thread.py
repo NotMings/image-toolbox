@@ -32,6 +32,9 @@ class ProcessingThread(QThread):
         self._question_done = True
         self._question_answer = None
 
+        # 取消请求：不再开始新图片，正在处理的图片会先完成
+        self._cancel_event = threading.Event()
+
     def run(self):
         try:
             result = self.func(
@@ -41,6 +44,7 @@ class ProcessingThread(QThread):
                 console_callback=self.report_console,
                 pause_callback=self.check_point,
                 question_callback=self.ask_question,
+                cancel_callback=self.is_cancel_requested,
                 **self.kwargs
             )
             # 任务完成后发出信号
@@ -68,6 +72,19 @@ class ProcessingThread(QThread):
             self._paused = False
             self._pause_condition.notify_all()
         self.signal_resumed.emit()
+
+    def request_cancel(self):
+        """请求取消处理：不再开始新的图片，正在处理的图片会先处理完成。
+
+        如果当前处于暂停状态，会自动恢复播放，否则正在处理的图片无法完成。
+        """
+        self._cancel_event.set()
+        with self._pause_condition:
+            self._paused = False
+            self._pause_condition.notify_all()
+
+    def is_cancel_requested(self):
+        return self._cancel_event.is_set()
 
     def abort(self):
         """中止处理：唤醒可能正在暂停或等待用户回答的线程，并让处理循环尽快退出。"""

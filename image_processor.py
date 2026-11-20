@@ -101,7 +101,8 @@ class ImageProcessor(QObject):
             progress_count_callback=None,
             console_callback=None,
             pause_callback=None,
-            question_callback=None
+            question_callback=None,
+            cancel_callback=None
     ):
         def log(message):
             if console_callback is not None:
@@ -140,9 +141,14 @@ class ImageProcessor(QObject):
                 return False
             return pause_callback() if pause_callback is not None else True
 
+        def is_cancelled():
+            # 取消只在图片边界检查：正在处理的图片会先完成，符合“当前图片处理完再取消”的语义
+            return cancel_callback is not None and cancel_callback()
+
         context['ask'] = ask
         context['check_point'] = check_point
         context['log'] = log
+        context['is_cancelled'] = is_cancelled
 
         result = {
             'total': 0,
@@ -150,6 +156,7 @@ class ImageProcessor(QObject):
             'failed': [],
             'skipped': 0,
             'aborted': False,
+            'cancelled': False,
             'alpha_questions': context['alpha_questions'],
             'duplicate_questions': context['duplicate_questions'],
         }
@@ -161,16 +168,26 @@ class ImageProcessor(QObject):
             if context['duplicate_policy'] == 'ask':
                 context['duplicate_policy'] = 'rename'
 
+        def loader_check_point():
+            # 载入阶段允许直接停止（还没有开始处理图片）
+            if is_cancelled():
+                return False
+            return check_point()
+
         log('正在载入图片...')
         self.image_path = load_image_path_from_folder(
             self.input_folder,
             self.kwargs.get('recursive_load', False),
-            check_point=check_point,
+            check_point=loader_check_point,
         )
 
         if self.image_path is None:
-            log('处理已中止')
-            result['aborted'] = True
+            if is_cancelled():
+                log('处理已取消')
+                result['cancelled'] = True
+            else:
+                log('处理已中止')
+                result['aborted'] = True
             return result
 
         if not self.image_path:
@@ -196,21 +213,30 @@ class ImageProcessor(QObject):
                 result['failed'].append(record.get('source'))
             elif status == 'aborted':
                 result['aborted'] = True
+            elif status == 'cancelled':
+                result['cancelled'] = True
 
-        def report_progress():
+        def report_progress(record):
+            # 因取消而未处理的图片不推进进度
+            if record is not None and record.get('status') == 'cancelled':
+                return
             completed[0] += 1
             if progress_callback is not None:
                 progress_callback(completed[0])
 
         if worker_count <= 1:
             for image_path_item in self.image_path:
+                if is_cancelled():
+                    result['cancelled'] = True
+                    break
+
                 if not check_point():
                     result['aborted'] = True
                     break
 
                 record = self._process_image(image_path_item, context)
                 merge_record(record)
-                report_progress()
+                report_progress(record)
 
                 if record.get('status') == 'aborted':
                     break
@@ -222,6 +248,8 @@ class ImageProcessor(QObject):
 
                 def submit_more():
                     while len(pending) < worker_count * 2:
+                        if is_cancelled():
+                            return
                         try:
                             path = next(path_iterator)
                         except StopIteration:
@@ -245,7 +273,7 @@ class ImageProcessor(QObject):
                             }
 
                         merge_record(record)
-                        report_progress()
+                        report_progress(record)
                         if record.get('status') == 'aborted':
                             aborted = True
 
@@ -258,7 +286,10 @@ class ImageProcessor(QObject):
 
                     submit_more()
 
-        log('处理完成: 成功 %d 张，失败 %d 张' % (result['success'], len(result['failed'])))
+        if result['cancelled']:
+            log('处理已取消: 成功 %d 张，失败 %d 张' % (result['success'], len(result['failed'])))
+        else:
+            log('处理完成: 成功 %d 张，失败 %d 张' % (result['success'], len(result['failed'])))
         if result['skipped'] > 0:
             log('其中因透明通道跳过 %d 张' % result['skipped'])
         return result
@@ -275,8 +306,16 @@ class ImageProcessor(QObject):
         check_point = context['check_point']
         source_name = os.path.basename(image_path_item)
 
+        # 取消只影响尚未开始处理的图片
+        if context['is_cancelled']():
+            return {'source': source_name, 'status': 'cancelled'}
+
         if not check_point():
             return {'source': source_name, 'status': 'aborted'}
+
+        # 暂停期间被取消：恢复后不应再开始处理这张图片
+        if context['is_cancelled']():
+            return {'source': source_name, 'status': 'cancelled'}
 
         image = None
         try:

@@ -15,7 +15,7 @@ from image_processor import ImageProcessor
 from ui.compiled.main_window import Ui_toolBoxMainWindow
 
 # 版本号：每次功能新增或问题修复后同步更新（功能更新升 minor，修复升 patch）
-VERSION = '1.3.1'
+VERSION = '1.4.0'
 
 
 class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
@@ -80,6 +80,10 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
         # 暂停/继续按钮
         self.pauseProcessingPushButton.setEnabled(False)
         self.pauseProcessingPushButton.clicked.connect(self.pause_processing)
+
+        # 取消按钮
+        self.cancelProcessingPushButton.setEnabled(False)
+        self.cancelProcessingPushButton.clicked.connect(self.cancel_processing)
 
         # 线程数滑块与输入框双向同步
         self.threadCountSlider.valueChanged.connect(self.threadCountSpinBox.setValue)
@@ -230,6 +234,8 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
 
         self.pauseProcessingPushButton.setEnabled(True)
         self.pauseProcessingPushButton.setText('暂停')
+        self.cancelProcessingPushButton.setEnabled(True)
+        self.cancelProcessingPushButton.setText('取消')
 
     def _set_thread_controls_enabled(self, enabled):
         self.threadCountSlider.setEnabled(enabled)
@@ -247,6 +253,21 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
             self.main_processing_thread.pause()
             self.pauseProcessingPushButton.setText('继续')
             self.consoleTextEdit.append('已暂停，点击“继续”恢复处理')
+
+    def cancel_processing(self):
+        if self.main_processing_thread is None or not self.main_processing_thread.isRunning():
+            return
+
+        if self.main_processing_thread.is_cancel_requested():
+            return
+
+        self.main_processing_thread.request_cancel()
+        self.cancelProcessingPushButton.setEnabled(False)
+        self.cancelProcessingPushButton.setText('正在取消...')
+        # 取消时需要让正在处理的图片完成，因此暂停状态会被自动恢复
+        self.pauseProcessingPushButton.setEnabled(False)
+        self.pauseProcessingPushButton.setText('暂停')
+        self.consoleTextEdit.append('正在取消，等待当前图片处理完成后停止...')
 
     def processing_result(self, result):
         self.last_result = result
@@ -353,6 +374,8 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
         self.startProcessingPushButton.setText('开始')
         self.pauseProcessingPushButton.setEnabled(False)
         self.pauseProcessingPushButton.setText('暂停')
+        self.cancelProcessingPushButton.setEnabled(False)
+        self.cancelProcessingPushButton.setText('取消')
         self._set_thread_controls_enabled(True)
 
         # 关闭窗口时线程被中止，不再弹出提示框
@@ -369,7 +392,14 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
         failed = result.get('failed') or []
         skipped_count = result.get('skipped', 0)
 
-        if result.get('aborted') is True:
+        if result.get('cancelled') is True:
+            message = '处理已取消：成功 %d 张，失败 %d 张。' % (success_count, len(failed))
+            if failed:
+                message += '\n失败的文件已跳过，详情见控制台。'
+            if skipped_count > 0:
+                message += '\n其中 %d 张因透明通道被跳过。' % skipped_count
+            QMessageBox.information(self, 'Information', message)
+        elif result.get('aborted') is True:
             QMessageBox.information(self, 'Information', '处理已中止')
         elif total_count == 0:
             QMessageBox.information(self, 'Information', '没有找到可处理的图片')

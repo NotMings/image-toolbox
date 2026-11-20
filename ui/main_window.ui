@@ -241,6 +241,16 @@
         </property>
        </widget>
       </item>
+      <item>
+       <widget class="QPushButton" name="cancelProcessingPushButton">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <property name="text">
+         <string>取消</string>
+        </property>
+       </widget>
+      </item>
      </layout>
     </item>
     <item row="2" column="1">
