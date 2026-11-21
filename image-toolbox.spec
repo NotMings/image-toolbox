@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-# PyInstaller 打包配置：单文件、控制台程序，带图标、assets 和翻译文件。
+# PyInstaller 打包配置：单文件窗口程序（GUI 无控制台），命令行模式自行接上终端。
 # 用法：pyinstaller image-toolbox.spec
 
 
@@ -32,7 +32,7 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=True,
+    console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

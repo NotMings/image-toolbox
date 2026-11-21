@@ -520,33 +520,8 @@ class ToolBoxMainWindow(Ui_toolBoxMainWindow, QMainWindow):
         )
 
 
-def _hide_console_if_opened_by_launcher():
-    """打包成控制台程序后，双击/无参数启动图形界面时隐藏控制台窗口。
-
-    从 cmd/PowerShell 等终端带参数运行命令行模式时保留控制台，避免影响输出。
-    """
-    if os.name != 'nt' or not getattr(sys, 'frozen', False):
-        return
-    # noinspection PyBroadException
-    try:
-        import ctypes
-
-        kernel32 = ctypes.windll.kernel32
-        process_ids = (ctypes.c_uint * 16)()
-        process_count = kernel32.GetConsoleProcessList(process_ids, 16)
-        # 双击启动时控制台里只有启动器自身（PyInstaller onefile 为父/子两个进程）；
-        # 从终端启动时还会包含 cmd/PowerShell 等进程，此时不隐藏。
-        if 0 < process_count <= 2:
-            console_window = kernel32.GetConsoleWindow()
-            if console_window:
-                ctypes.windll.user32.ShowWindow(console_window, 0)  # SW_HIDE
-    except Exception:
-        pass
-
-
 def run():
     """启动图形界面，返回 QApplication 的退出码。"""
-    _hide_console_if_opened_by_launcher()
     app = QApplication(sys.argv)
     _window = ToolBoxMainWindow()
     return app.exec()

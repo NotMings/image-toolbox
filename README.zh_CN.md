@@ -22,6 +22,8 @@
 
 查看全部参数（英文）：`--help`（也支持 `-h`）；`--version` 查看版本。
 
+GUI 是窗口程序，不会显示控制台；命令行模式会自动接上当前终端或管道输出。
+
 命令行退出码：`0` 成功，`1` 参数或运行错误，`2` 有图片失败/跳过，`3` 被取消。
 
 ## 功能
@@ -41,7 +43,7 @@ pip install pillow pyside6 pyinstaller
 pyinstaller image-toolbox.spec
 ```
 
-生成的可执行文件是 `dist/image-toolbox.exe`。`image-toolbox.spec` 已包含单文件、控制台、图标、`assets` 和翻译文件配置。
+生成的可执行文件是 `dist/image-toolbox.exe`。`image-toolbox.spec` 已包含单文件窗口程序（GUI 不显示控制台）、图标、`assets` 和翻译文件配置。
 
 翻译文件位于 `app/locales/zh_CN` 和 `app/locales/zh_TW`，msgid 为英文；修改后先执行 `python tools/build_catalogs.py` 重新生成 `.mo` 再打包。
 

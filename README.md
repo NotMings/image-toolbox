@@ -22,6 +22,8 @@ Double-click to start the graphical interface; pass arguments to use the command
 
 View all options (English): `--help` (or `-h`); `--version` for the version.
 
+The GUI is a windowed program and does not open a console. In command-line mode the executable attaches to the current terminal or pipe for its output.
+
 CLI exit codes: `0` success, `1` argument/runtime error, `2` some images failed or were skipped, `3` cancelled.
 
 ## Features
@@ -41,7 +43,7 @@ pip install pillow pyside6 pyinstaller
 pyinstaller image-toolbox.spec
 ```
 
-The executable is `dist/image-toolbox.exe`. `image-toolbox.spec` configures one-file mode, console mode, the icon, `assets`, and the translation files.
+The executable is `dist/image-toolbox.exe`. `image-toolbox.spec` configures one-file windowed mode (no console for the GUI), the icon, `assets`, and the translation files.
 
 Translation files use English msgids and live in `app/locales/zh_CN` and `app/locales/zh_TW`. After editing them, run `python tools/build_catalogs.py` to regenerate the `.mo` files before packaging.
 

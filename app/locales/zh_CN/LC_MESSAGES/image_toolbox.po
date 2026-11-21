@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: image-toolbox 1.6.3\n"
+"Project-Id-Version: image-toolbox 1.6.4\n"
 "Language: zh_CN\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"

@@ -4,8 +4,6 @@
 The graphical interface and the command line share one program:
 - no arguments: start the GUI
 - with arguments: run in command-line mode (English only)
-
-Command-line mode depends only on Pillow; PySide6 is not required.
 """
 
 import argparse
